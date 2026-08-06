@@ -7,6 +7,7 @@ Authors: Claude
 import Calc
 import GripDiagnostics
 import TermColor.Repl
+import TermColor.Repl.Terminal
 
 /-!
 # Main: the terminal, the keyboard, and the clock
@@ -68,8 +69,7 @@ private structure App where
   repl : Repl.State := {}
   running : Bool := true
 
-private def currentSize : IO Size := do
-  pure ((← terminalSize).getD fallbackSize)
+private def currentSize : IO Size := Repl.Terminal.currentSize fallbackSize
 
 private def messageFailure (cell : Option Nat) (message : String) : Entry :=
   .failure cell #[] (Diagnostic.error message)
@@ -285,20 +285,6 @@ private def submit (screen : Screen) (app : App) (raw : String) : IO (Screen × 
       | .error (.evaluation message) =>
           return (screen, push app (messageFailure (some cell) message))
 
-private def readKeyWithResize (screen : Screen) (app : App) : IO (Screen × Option Key) := do
-  let result ← IO.mkRef (none : Option (Option Key))
-  let _task ← IO.asTask do
-    result.set (some (← readKey))
-  let mut screen := screen
-  let mut size ← currentSize
-  while (← result.get).isNone do
-    let nextSize ← currentSize
-    if nextSize != size then
-      screen ← render screen app
-      size := nextSize
-    IO.sleep tickMs
-  pure (screen, (← result.get).getD none)
-
 /-! ## Run modes -/
 
 private def interactive (start : App) : IO Unit := do
@@ -309,7 +295,8 @@ private def interactive (start : App) : IO Unit := do
       let mut screen ← Screen.start
       while app.running do
         screen ← render screen app
-        let (nextScreen, key) ← readKeyWithResize screen app
+        let (nextScreen, key) ← Repl.Terminal.readKeyWithResize tickMs fallbackSize screen
+          (fun screen => render screen app)
         screen := nextScreen
         match key with
         | none => app := { app with running := false }
