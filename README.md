@@ -58,7 +58,7 @@ brings the banner back. Input cells are numbered; their outputs and errors inher
 
 The reusable input/history/completion core is maintained in
 [`lean-termcolor-repl`](https://github.com/jonaprieto/lean-termcolor-repl); terminal-loop
-extraction remains tracked in [TODO.md](TODO.md).
+and transient-command lifecycle now live there too.
 
 | command | what it does |
 | --- | --- |
