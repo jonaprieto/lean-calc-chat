@@ -56,6 +56,10 @@ brings the banner back. Input cells are numbered; their outputs and errors inher
 `enter` evaluates; `esc` quits immediately.
 `up`/`down` recall submitted inputs; `tab` completes commands and theme options adaptively.
 
+The reusable input/history/completion core is maintained in
+[`lean-termcolor-repl`](https://github.com/jonaprieto/lean-termcolor-repl); terminal-loop
+extraction remains tracked in [TODO.md](TODO.md).
+
 | command | what it does |
 | --- | --- |
 | `/help` | the table of everything below |
@@ -111,6 +115,8 @@ The direct requirements pull the TermColor UI stack plus Grip's source diagnosti
   width-aware caret diagnostics as pure `Text`.
 - **grip-diagnostics** -- the byte-offset adapter from Grip parser failures to TermColor
   diagnostics.
+- **termcolor-repl** -- pure input history, key handling, and adaptive completion; the
+  calculator still owns its terminal runner and transcript model.
 - **grip** -- `GParser.fix`, `dispatch`, `many`, `map2`, `optional`, `capture`, `captureWith?`,
   `takeWhile1`, `oneOf`, `ws`, `ch`, `eof`, `<?>`, `GParser.parse`, `ParseError.pretty`. The whole
   grammar is `partial`-free: recursion is `fix`, repetition is `many`, and `many`'s always-consume

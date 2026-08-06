@@ -6,6 +6,7 @@ Authors: Claude
 
 import Calc
 import GripDiagnostics
+import TermColor.Repl
 
 /-!
 # Main: the terminal, the keyboard, and the clock
@@ -24,6 +25,7 @@ open TermColor.Diagnostics
 open TermColor.Layout
 open TermColor.Terminal
 open TermColor.Widgets
+open TermColor.Repl
 open scoped TermColor.Style
 open Grip
 open Calc
@@ -63,9 +65,7 @@ private structure App where
   nextCell : Nat := 1
   entries : List Entry := []
   history : List (String × String) := []
-  inputHistory : List String := []
-  historyIndex : Option Nat := none
-  input : TextInputState := {}
+  repl : Repl.State := {}
   running : Bool := true
 
 private def currentSize : IO Size := do
@@ -107,7 +107,7 @@ private def screenView (app : App) (size : Size) (showPrompt : Bool) : Text :=
   let width := size.columns
   let head :=
     if app.entries.isEmpty then banner app.theme width else compactHeader app.theme width
-  let foot := promptView app.theme width app.input ++ Text.plain "\n" ++
+  let foot := promptView app.theme width app.repl.input ++ Text.plain "\n" ++
     footerView app.theme width app.themeName app.ans
   let used := head.height + (if showPrompt then foot.height else 0) + chromeRows
   let budget := if size.rows > used then size.rows - used else 1
@@ -184,64 +184,14 @@ private def words (line : String) : List String :=
 private def commandNames : List String :=
   ["/help", "/history", "/showcase", "/theme", "/clear", "/quit", "/exit"]
 
-private def inputState (value : String) : TextInputState :=
-  { value, cursor := value.toList.length }
-
-private def completionCandidates (input : String) : List String :=
-  match words input with
-  | [fragment] => commandNames.filter (·.startsWith fragment)
+private def completionCandidates (input : TextInputState) : List Repl.Completion :=
+  match words input.value with
+  | [fragment] =>
+      commandNames.filter (·.startsWith fragment) |>.map (fun replacement => { replacement })
   | ["/theme", fragment] =>
-      (themes.map Prod.fst).filter (·.startsWith fragment) |>.map (fun name => s!"/theme {name}")
+      (themes.map Prod.fst).filter (·.startsWith fragment) |>.map
+        (fun name => { replacement := s!"/theme {name}" })
   | _ => []
-
-private def commonPrefix : List Char → List Char → List Char
-  | left :: rest, right :: tail =>
-      if left == right then left :: commonPrefix rest tail else []
-  | _, _ => []
-
-private def sharedPrefix : List String → String
-  | [] => ""
-  | candidate :: rest =>
-      String.ofList <| rest.foldl (fun shared next => commonPrefix shared next.toList) candidate.toList
-
-private def completeInput (input : TextInputState) : TextInputState :=
-  match completionCandidates input.value with
-  | [candidate] => inputState candidate
-  | candidates =>
-      let shared := sharedPrefix candidates
-      if shared.length > input.value.length then inputState shared else input
-
-private def historyUp (app : App) : App :=
-  if app.inputHistory.isEmpty then app
-  else
-    let index := match app.historyIndex with
-      | none => app.inputHistory.length - 1
-      | some index => index.pred
-    { app with
-      input := inputState (app.inputHistory.getD index "")
-      historyIndex := some index }
-
-private def historyDown (app : App) : App :=
-  match app.historyIndex with
-  | none => app
-  | some index =>
-      if index + 1 < app.inputHistory.length then
-        let next := index + 1
-        { app with
-          input := inputState (app.inputHistory.getD next "")
-          historyIndex := some next }
-      else
-        { app with input := {}, historyIndex := none }
-
-private def updateInput (app : App) (key : Key) : App :=
-  match key with
-  | .up => historyUp app
-  | .down => historyDown app
-  | .tab => { app with input := completeInput app.input, historyIndex := none }
-  | _ =>
-      { app with
-        input := updateTextInput inputConfig key app.input
-        historyIndex := none }
 
 private def cellInput : List Entry → Nat → Option String
   | [], _ => none
@@ -307,17 +257,11 @@ private def runCommand (app : App) (cell : Nat) (line : String) : App :=
   | ["/quit"] | ["/exit"] => { app with running := false }
   | _ => push app (messageFailure (some cell) s!"'{line}' is not a command. Try /help.")
 
-private def submit (screen : Screen) (app : App) : IO (Screen × App) := do
-  let raw := app.input.value.trimAscii.toString
-  if raw.isEmpty then
-    return (screen, { app with input := {} })
+private def submit (screen : Screen) (app : App) (raw : String) : IO (Screen × App) := do
   let width := (← currentSize).columns
   let cell := app.nextCell
   let app := push { app with
-      input := {}
-      nextCell := cell + 1
-      inputHistory := app.inputHistory ++ [raw]
-      historyIndex := none } (Entry.ask cell raw)
+      nextCell := cell + 1 } (Entry.ask cell raw)
   if raw.startsWith "/" then
     if words raw == ["/showcase"] then
       let _ ← render screen app (showPrompt := false)
@@ -369,12 +313,16 @@ private def interactive (start : App) : IO Unit := do
         screen := nextScreen
         match key with
         | none => app := { app with running := false }
-        | some .escape => app := { app with running := false }
-        | some .enter =>
-            let (nextScreen, nextApp) ← submit screen app
-            screen := nextScreen
-            app := nextApp
-        | some key => app := updateInput app key
+        | some key =>
+            let (repl, action) := Repl.update inputConfig completionCandidates app.repl key
+            app := { app with repl := repl }
+            match action with
+            | .changed => pure ()
+            | .quit => app := { app with running := false }
+            | .submit raw =>
+                let (nextScreen, nextApp) ← submit screen app raw
+                screen := nextScreen
+                app := nextApp
   finally
     showCursor
     clearScreen

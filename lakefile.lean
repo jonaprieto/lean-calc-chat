@@ -21,6 +21,10 @@ require «grip-diagnostics» from git
   "https://github.com/jonaprieto/lean-grip-diagnostics.git"
   @ "v0.2.3"
 
+require «termcolor-repl» from git
+  "https://github.com/jonaprieto/lean-termcolor-repl.git"
+  @ "main"
+
 @[default_target]
 lean_lib «Calc» where
   roots := #[`Calc]
