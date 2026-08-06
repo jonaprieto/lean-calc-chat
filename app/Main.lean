@@ -265,9 +265,8 @@ private def submit (screen : Screen) (app : App) (raw : String) : IO (Screen × 
   if raw.startsWith "/" then
     if words raw == ["/showcase"] then
       let _ ← render screen app (showPrompt := false)
-      showcase app.theme width
-      clearScreen
-      return (Screen.empty, push app (.note (.widgets 6)))
+      let (screen, ()) ← Repl.Terminal.suspend (showcase app.theme width)
+      return (screen, push app (.note (.widgets 6)))
     let app := runCommand app cell raw
     return (← render screen app, app)
   let screen ← render screen app (showPrompt := false)
@@ -288,31 +287,18 @@ private def submit (screen : Screen) (app : App) (raw : String) : IO (Screen × 
 /-! ## Run modes -/
 
 private def interactive (start : App) : IO Unit := do
-  hideCursor
-  try
-    withRawInput do
-      let mut app := start
-      let mut screen ← Screen.start
-      while app.running do
-        screen ← render screen app
-        let (nextScreen, key) ← Repl.Terminal.readKeyWithResize tickMs fallbackSize screen
-          (fun screen => render screen app)
-        screen := nextScreen
-        match key with
-        | none => app := { app with running := false }
-        | some key =>
-            let (repl, action) := Repl.update inputConfig completionCandidates app.repl key
-            app := { app with repl := repl }
-            match action with
-            | .changed => pure ()
-            | .quit => app := { app with running := false }
-            | .submit raw =>
-                let (nextScreen, nextApp) ← submit screen app raw
-                screen := nextScreen
-                app := nextApp
-  finally
-    showCursor
-    clearScreen
+  Repl.Terminal.run
+    { initial := start
+      inputConfig := inputConfig
+      fallbackSize := fallbackSize
+      tickMs := tickMs
+      view := fun app size => screenView app size true
+      complete := fun _ input => completionCandidates input
+      getState := fun app => app.repl
+      setState := fun app repl => { app with repl }
+      submit := submit
+      isRunning := fun app => app.running
+      quit := fun app => { app with running := false } }
 
 private def staticSamples : List String :=
   ["2+3*4", "(1+2)^5", "2^-2", "sqrt(2)", "10/4 + 7%3", "ans * 2", "1/0", "2 * (3 + "]
