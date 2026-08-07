@@ -2,7 +2,7 @@ import Lake
 open Lake DSL
 
 package «calc-chat» where
-  version := v!"0.5.1"
+  version := v!"0.5.2"
   leanOptions := #[⟨`autoImplicit, false⟩, ⟨`relaxedAutoImplicit, false⟩]
 
 require «termcolor-terminal» from git
