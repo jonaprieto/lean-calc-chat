@@ -71,6 +71,7 @@ private structure App where
   entries : List Entry := []
   history : List (String × String) := []
   repl : Repl.State := {}
+  busy : Bool := false
   running : Bool := true
 
 private def currentSize : IO Size := Repl.Terminal.currentSize fallbackSize
@@ -127,8 +128,11 @@ private def screenView (app : App) (size : Size) (showPrompt : Bool) : Text :=
   let menu := app.repl.completion.map fun completion =>
     Text.plain "\n" ++ renderCompletionMenu
       { width := boxInnerWidth (frameWidth width) } completion
+  let status := if app.busy then
+      Text.plain "\n" ++ Text.styled "Computing…" (Style.fg app.theme.cyan)
+    else Text.empty
   let foot := promptView app.theme width app.repl.input ++ menu.getD Text.empty ++
-    Text.plain "\n" ++
+    status ++ Text.plain "\n" ++
     footerView app.theme width app.themeName app.ans
   let used := head.height + (if showPrompt then foot.height else 0) + chromeRows
   let budget := if size.rows > used then size.rows - used else 1
@@ -296,6 +300,24 @@ private def submit (screen : Screen) (app : App) (raw : String) : IO (Screen × 
       let _ ← render screen app (showPrompt := false)
       let (screen, ()) ← Repl.Terminal.suspend (showcase app.theme width)
       return (screen, push app (.note (.widgets 6)))
+    if let ["/load", path] := words raw then
+      let source ← try IO.FS.readFile ⟨path⟩ catch error =>
+        let next := push app (messageFailure (some cell) s!"could not read '{path}': {error}")
+        return (← render screen next, next)
+      let source := source.trimAscii.toString
+      let screen ← render screen app (showPrompt := false)
+      match replaceReferences app.entries source with
+      | .error message => return (screen, push app (messageFailure (some cell) message))
+      | .ok expanded =>
+          match evaluateDetailed app.ans expanded with
+          | .ok value =>
+              let text := formatValue value
+              return (screen, { push app (Entry.answer cell text) with
+                ans := value
+                history := app.history ++ [(raw, text)] })
+          | .error (.parse error) => return (screen, push app (parseFailure cell expanded error))
+          | .error (.evaluation message) =>
+              return (screen, push app (messageFailure (some cell) message))
     let app := runCommand app cell raw
     return (← render screen app, app)
   let screen ← render screen app (showPrompt := false)
@@ -319,6 +341,39 @@ private def submit (screen : Screen) (app : App) (raw : String) : IO (Screen × 
       | .error (.evaluation message) =>
           return (screen, push app (messageFailure (some cell) message))
 
+private def backgroundJobs : Repl.Terminal.JobConfig App where
+  shouldRun := fun _ line => !line.startsWith "/"
+  start := fun app _ => { app with busy := true }
+  run := fun cancellation screen app raw => do
+    unless ← Repl.Terminal.Cancellation.sleep cancellation 500 do
+      return (screen, { app with busy := false })
+    if ← Repl.Terminal.Cancellation.isCancelled cancellation then
+      return (screen, { app with busy := false })
+    let cell := app.nextCell - 1
+    match replaceReferences app.entries raw with
+    | .error message =>
+        let next := push { app with busy := false } (messageFailure (some cell) message)
+        pure (screen, next)
+    | .ok expanded =>
+        match evaluateDetailed app.ans expanded with
+        | .ok value =>
+            let text := formatValue value
+            let next := push { app with busy := false } (Entry.answer cell text)
+            pure (screen, { next with
+              ans := value
+              history := app.history ++ [(raw, text)] })
+        | .error (.parse error) =>
+            pure (screen, push { app with busy := false }
+              (parseFailure cell expanded error))
+        | .error (.evaluation message) =>
+            pure (screen, push { app with busy := false }
+              (messageFailure (some cell) message))
+  finish := fun current completed => { completed with
+    repl := current.repl
+    busy := false }
+  cancel := fun app => { app with busy := false }
+  fail := fun app message => push { app with busy := false } (messageFailure none message)
+
 /-! ## Run modes -/
 
 private def interactive (start : App) : IO Unit := do
@@ -333,6 +388,7 @@ private def interactive (start : App) : IO Unit := do
       getState := fun app => app.repl
       setState := fun app repl => { app with repl }
       submit := submit
+      jobs := some backgroundJobs
       isRunning := fun app => app.running
       quit := fun app => { app with running := false } }
 

@@ -5,7 +5,7 @@
    "type": "git",
    "subDir": null,
    "scope": "",
-   "rev": "e526123b5ab939d79449bf0dee2f68c1bf17b61d",
+   "rev": "a89ffc1acfad1c2c2d76e7f5e029bf021e0f0844",
    "name": "«termcolor-repl»",
    "manifestFile": "lake-manifest.json",
    "inputRev": "main",

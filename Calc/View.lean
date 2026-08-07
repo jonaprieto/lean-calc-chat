@@ -34,7 +34,7 @@ open scoped TermColor.Style
 namespace Calc
 
 /-- Shown in the banner title. Kept in step with the `version` in `lakefile.lean`. -/
-def version : String := "0.2.0"
+def version : String := "0.5.0"
 
 /-! ## Themes
 
@@ -320,6 +320,7 @@ def helpView (theme : ColorScheme) (width : Nat) : Text :=
     , [command "/help  /history", Text.plain "this table, past results"]
     , [command "/showcase", Text.plain "run every live widget in the stack"]
     , [command "/theme <name>", Text.plain themeNames]
+    , [command "/load <path>", Text.plain "evaluate one expression from a file"]
     , [command "ctrl-n", Text.plain "insert a line break; enter evaluates"]
     , [command "/clear /quit", Text.plain "reset the chat, leave"] ] tableGap)
 

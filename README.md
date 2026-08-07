@@ -20,7 +20,7 @@ CALC_NONINTERACTIVE=1 lake exe calc
 ```
 
 ```
-┌ Lean Calc v0.1.1 ──────────────────────────────────────────────────────────┐
+┌ Lean Calc v0.5.0 ──────────────────────────────────────────────────────────┐
 │               Welcome back!                │ Tips for getting started      │
 │                                            │ Type an expression: 2+3*4     │
 │                  ▄▄▄▄▄▄▄▄                  │ ans reuses the last result    │
