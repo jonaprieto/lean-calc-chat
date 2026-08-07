@@ -414,7 +414,8 @@ private def staticDemo (start : App) : IO Unit := do
         ans := value
         rows := rows ++ [(sample, text)]
         writeTextLine (entryView theme width (.answer cell text))
-    | .error (.parse error) => writeTextLine (entryView theme width (parseFailure cell sample error))
+    | .error (.parse error) =>
+        writeTextLine (entryView theme width (parseFailure cell sample error))
     | .error (.evaluation message) =>
         writeTextLine (entryView theme width (messageFailure (some cell) message))
     cell := cell + 1

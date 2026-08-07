@@ -368,7 +368,8 @@ def widgetGallery (theme : ColorScheme) (width : Nat) (frame : Nat) : Text :=
         [ headerRow theme "table" "value"
         , [Text.plain "rows wrap", Text.styled "yes" (Style.fg theme.green)] ] tableGap ])
 
-private def cellMarker (theme : ColorScheme) (cell : Nat) (symbol : String) (style : Style) : Text :=
+private def cellMarker
+    (theme : ColorScheme) (cell : Nat) (symbol : String) (style : Style) : Text :=
   Text.styled s!"[{cell}] " (Style.dim <+> Style.fg theme.comment) ++
     Text.styled s!"{symbol} " style
 
