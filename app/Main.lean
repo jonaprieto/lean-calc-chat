@@ -63,6 +63,10 @@ private def multilineInputConfig : Repl.MultilineConfig :=
 
 /-! ## State -/
 
+private structure JobResult where
+  entry : Entry
+  answer : Option (Float × (String × String)) := none
+
 private structure App where
   theme : ColorScheme := terracotta
   themeName : String := defaultThemeName
@@ -71,6 +75,8 @@ private structure App where
   entries : List Entry := []
   history : List (String × String) := []
   repl : Repl.State := {}
+  activeJobs : Nat := 0
+  jobResult : Option JobResult := none
   busy : Bool := false
   running : Bool := true
 
@@ -274,6 +280,23 @@ private def replaceReferences (entries : List Entry) (input : String) : Except S
 private def push (app : App) (entry : Entry) : App :=
   { app with entries := app.entries ++ [entry] }
 
+private def finishJob (app : App) : App :=
+  let remaining := app.activeJobs.pred
+  { app with activeJobs := remaining, busy := remaining > 0 }
+
+private def applyJobResult (app : App) (result : JobResult) : App :=
+  let app := push app result.entry
+  match result.answer with
+  | none => app
+  | some (value, history) =>
+      { app with ans := value, history := app.history ++ [history] }
+
+private def mergeJobResult (current completed : App) : App :=
+  let current := match completed.jobResult with
+    | some result => applyJobResult current result
+    | none => current
+  finishJob { current with jobResult := none }
+
 private def runCommand (app : App) (cell : Nat) (line : String) : App :=
   match words line with
   | ["/help"] => push app (.note .help)
@@ -343,36 +366,39 @@ private def submit (screen : Screen) (app : App) (raw : String) : IO (Screen × 
 
 private def backgroundJobs : Repl.Terminal.JobConfig App where
   shouldRun := fun _ line => !line.startsWith "/"
-  start := fun app _ => { app with busy := true }
+  start := fun app raw =>
+    let cell := app.nextCell
+    { app with
+      nextCell := cell + 1
+      entries := app.entries ++ [Entry.ask cell raw]
+      activeJobs := app.activeJobs + 1
+      busy := true }
   run := fun cancellation screen app raw => do
     unless ← Repl.Terminal.Cancellation.sleep cancellation 500 do
-      return (screen, { app with busy := false })
+      return (screen, app)
     if ← Repl.Terminal.Cancellation.isCancelled cancellation then
-      return (screen, { app with busy := false })
+      return (screen, app)
     let cell := app.nextCell - 1
     match replaceReferences app.entries raw with
     | .error message =>
-        let next := push { app with busy := false } (messageFailure (some cell) message)
-        pure (screen, next)
+        pure (screen, { app with jobResult := (some
+          { entry := messageFailure (some cell) message }) })
     | .ok expanded =>
         match evaluateDetailed app.ans expanded with
         | .ok value =>
             let text := formatValue value
-            let next := push { app with busy := false } (Entry.answer cell text)
-            pure (screen, { next with
-              ans := value
-              history := app.history ++ [(raw, text)] })
+            pure (screen, { app with jobResult := (some
+              { entry := .answer cell text
+                answer := some (value, (raw, text)) }) })
         | .error (.parse error) =>
-            pure (screen, push { app with busy := false }
-              (parseFailure cell expanded error))
+            pure (screen, { app with jobResult := (some
+              { entry := parseFailure cell expanded error }) })
         | .error (.evaluation message) =>
-            pure (screen, push { app with busy := false }
-              (messageFailure (some cell) message))
-  finish := fun current completed => { completed with
-    repl := current.repl
-    busy := false }
-  cancel := fun app => { app with busy := false }
-  fail := fun app message => push { app with busy := false } (messageFailure none message)
+            pure (screen, { app with jobResult := (some
+              { entry := messageFailure (some cell) message }) })
+  finish := mergeJobResult
+  cancel := fun app => { app with activeJobs := 0, jobResult := none, busy := false }
+  fail := fun app message => finishJob (push app (messageFailure none message))
 
 /-! ## Run modes -/
 
