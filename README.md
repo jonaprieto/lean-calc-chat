@@ -55,6 +55,7 @@ brings the banner back. Input cells are numbered; their outputs and errors inher
 
 `enter` evaluates; `esc` quits immediately.
 `up`/`down` recall submitted inputs; `tab` completes commands and theme options adaptively.
+`ctrl-n` inserts a line break without submitting a multiline expression.
 
 The reusable input/history/completion core is maintained in
 [`lean-termcolor-repl`](https://github.com/jonaprieto/lean-termcolor-repl); terminal-loop

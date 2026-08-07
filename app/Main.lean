@@ -57,6 +57,9 @@ private def chromeRows : Nat := 4
 /-- Longest expression the prompt accepts. -/
 private def inputConfig : TextInputConfig := { width := 120, maxLength := 120 }
 
+private def multilineInputConfig : Repl.MultilineConfig :=
+  { text := inputConfig, lineBreak := .ctrl 'n' }
+
 /-! ## State -/
 
 private structure App where
@@ -103,6 +106,19 @@ private def fitEntries (theme : ColorScheme) (width budget : Nat)
   | [], newest :: _ => [joinLines ((splitLines newest).drop (newest.height - budget))]
   | kept, _ => kept
 
+private def withBackground (theme : ColorScheme) (text : Text) : Text :=
+  { segments := text.segments.map fun segment =>
+      { segment with style := Style.bg theme.background <+> segment.style } }
+
+private def opaqueScreen (theme : ColorScheme) (size : Size) (content : Text) : Text :=
+  let width := max 1 size.columns
+  let rows := max 1 size.rows
+  let blank := Text.styled (String.ofList (List.replicate width ' '))
+    (Style.bg theme.background)
+  let lines := (splitLines (wrapLines width content)).take rows
+  let lines := lines.map (fun line => withBackground theme (padRight width line))
+  joinLines (lines ++ List.replicate (rows - lines.length) blank)
+
 private def screenView (app : App) (size : Size) (showPrompt : Bool) : Text :=
   let width := size.columns
   let head :=
@@ -112,9 +128,10 @@ private def screenView (app : App) (size : Size) (showPrompt : Bool) : Text :=
   let used := head.height + (if showPrompt then foot.height else 0) + chromeRows
   let budget := if size.rows > used then size.rows - used else 1
   let views := fitEntries app.theme width budget app.entries
-  head ++ Text.plain "\n\n" ++
-    (if views.isEmpty then emptyTranscript app.theme else joinLines views) ++
-    (if showPrompt then Text.plain "\n\n" ++ foot else Text.empty)
+  opaqueScreen app.theme size <|
+    head ++ Text.plain "\n\n" ++
+      (if views.isEmpty then emptyTranscript app.theme else joinLines views) ++
+      (if showPrompt then Text.plain "\n\n" ++ foot else Text.empty)
 
 private def render (screen : Screen) (app : App) (showPrompt : Bool := true) : IO Screen := do
   screen.render (screenView app (← currentSize) showPrompt)
@@ -290,6 +307,7 @@ private def interactive (start : App) : IO Unit := do
   Repl.Terminal.run
     { initial := start
       inputConfig := inputConfig
+      multiline := some multilineInputConfig
       fallbackSize := fallbackSize
       tickMs := tickMs
       view := fun app size => screenView app size true

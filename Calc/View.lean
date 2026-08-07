@@ -6,6 +6,7 @@ Authors: Claude
 
 import TermColor.ColorScheme
 import TermColor.Diagnostics
+import TermColor.Repl
 import TermColor.Terminal
 import Calc.Eval
 
@@ -33,7 +34,7 @@ open scoped TermColor.Style
 namespace Calc
 
 /-- Shown in the banner title. Kept in step with the `version` in `lakefile.lean`. -/
-def version : String := "0.1.1"
+def version : String := "0.2.0"
 
 /-! ## Themes
 
@@ -224,7 +225,11 @@ private def promptMarkerWidth : Nat := 2
 def promptView (theme : ColorScheme) (width : Nat) (state : TextInputState) : Text :=
   let outer := frameWidth width
   box (Text.styled "› " (Style.fg theme.orange) ++
-      textInputBody { width := boxInnerWidth outer - promptMarkerWidth, textStyle := Style.fg theme.foreground, cursorStyle := Style.reverse } state true)
+      TermColor.Repl.renderMultilineTextInputBody
+        { width := boxInnerWidth outer - promptMarkerWidth
+          textStyle := Style.fg theme.foreground
+          cursorStyle := Style.reverse }
+        state true)
     { chars := roundedChars
       , borderStyle := Style.fg theme.selection
       , maxWidth := some outer }
@@ -315,6 +320,7 @@ def helpView (theme : ColorScheme) (width : Nat) : Text :=
     , [command "/help  /history", Text.plain "this table, past results"]
     , [command "/showcase", Text.plain "run every live widget in the stack"]
     , [command "/theme <name>", Text.plain themeNames]
+    , [command "ctrl-n", Text.plain "insert a line break; enter evaluates"]
     , [command "/clear /quit", Text.plain "reset the chat, leave"] ] tableGap)
 
 /-- The `/history` panel. Rows are newest last. -/
