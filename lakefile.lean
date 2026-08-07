@@ -7,7 +7,7 @@ package «calc-chat» where
 
 require «termcolor-terminal» from git
   "https://github.com/jonaprieto/lean-termcolor-terminal.git"
-  @ "v0.2.0"
+  @ "v0.2.1"
 
 require «termcolor-diagnostics» from git
   "https://github.com/jonaprieto/lean-termcolor-diagnostics.git"
@@ -23,7 +23,7 @@ require «grip-diagnostics» from git
 
 require «termcolor-repl» from git
   "https://github.com/jonaprieto/lean-termcolor-repl.git"
-  @ "v0.6.0"
+  @ "v0.6.1"
 
 @[default_target]
 lean_lib «Calc» where
