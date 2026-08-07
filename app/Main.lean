@@ -7,6 +7,7 @@ Authors: Claude
 import Calc
 import GripDiagnostics
 import TermColor.Repl
+import TermColor.Repl.FileCompletion
 import TermColor.Repl.Terminal
 
 /-!
@@ -123,7 +124,11 @@ private def screenView (app : App) (size : Size) (showPrompt : Bool) : Text :=
   let width := size.columns
   let head :=
     if app.entries.isEmpty then banner app.theme width else compactHeader app.theme width
-  let foot := promptView app.theme width app.repl.input ++ Text.plain "\n" ++
+  let menu := app.repl.completion.map fun completion =>
+    Text.plain "\n" ++ renderCompletionMenu
+      { width := boxInnerWidth (frameWidth width) } completion
+  let foot := promptView app.theme width app.repl.input ++ menu.getD Text.empty ++
+    Text.plain "\n" ++
     footerView app.theme width app.themeName app.ans
   let used := head.height + (if showPrompt then foot.height else 0) + chromeRows
   let budget := if size.rows > used then size.rows - used else 1
@@ -199,7 +204,7 @@ private def words (line : String) : List String :=
   (line.splitOn " ").filter (fun word => !word.isEmpty)
 
 private def commandNames : List String :=
-  ["/help", "/history", "/showcase", "/theme", "/clear", "/quit", "/exit"]
+  ["/help", "/history", "/showcase", "/theme", "/load", "/clear", "/quit", "/exit"]
 
 private def completionCandidates (input : TextInputState) : List Repl.Completion :=
   match words input.value with
@@ -209,6 +214,12 @@ private def completionCandidates (input : TextInputState) : List Repl.Completion
       (themes.map Prod.fst).filter (·.startsWith fragment) |>.map
         (fun name => { replacement := s!"/theme {name}" })
   | _ => []
+
+private def completionIO (input : TextInputState) : IO (List Repl.Completion) :=
+  if input.value.startsWith "/load " then
+    defaultFileCompletions input
+  else
+    pure (completionCandidates input)
 
 private def cellInput : List Entry → Nat → Option String
   | [], _ => none
@@ -318,7 +329,7 @@ private def interactive (start : App) : IO Unit := do
       fallbackSize := fallbackSize
       tickMs := tickMs
       view := fun app size => screenView app size true
-      complete := fun _ input => completionCandidates input
+      complete := fun _ input => completionIO input
       getState := fun app => app.repl
       setState := fun app repl => { app with repl }
       submit := submit
