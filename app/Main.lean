@@ -244,7 +244,8 @@ private def replaceReferences (entries : List Entry) (input : String) : Except S
                 match cellReference entries cell with
                 | none => .error s!"cell [{cell}] does not exist"
                 | some value =>
-                    .ok (false, ([], ("(" ++ value ++ ")").toList.reverse ++ built))
+                    let replacement := if value.startsWith "/" then value else "(" ++ value ++ ")"
+                    .ok (false, ([], replacement.toList.reverse ++ built))
           else .error "cell references use [n]"
         else if character == '[' then
           .ok (true, ([], built))
@@ -290,6 +291,12 @@ private def submit (screen : Screen) (app : App) (raw : String) : IO (Screen × 
   match replaceReferences app.entries raw with
   | .error message => return (screen, push app (messageFailure (some cell) message))
   | .ok expanded =>
+      if expanded.startsWith "/" then
+        if words expanded == ["/showcase"] then
+          let (screen, ()) ← Repl.Terminal.suspend (showcase app.theme width)
+          return (screen, push app (.note (.widgets 6)))
+        let app := runCommand app cell expanded
+        return (← render screen app, app)
       thinking app.theme
       match evaluateDetailed app.ans expanded with
       | .ok value =>
