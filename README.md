@@ -7,8 +7,6 @@
 Chat-shaped terminal calculator in Lean 4. It combines Grip parsing, pure TermColor rendering,
 diagnostics, widgets, terminal input, themes, history, and concurrent background evaluations.
 
-Version: `v0.5.0`
-
 ## Run
 
 ```sh
