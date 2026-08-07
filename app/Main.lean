@@ -100,19 +100,23 @@ private def resolveTheme : IO App := do
 /-- Keep the newest entries that fit in `budget` rows, oldest first.
 
 `Screen` retains rendered lines and performs the terminal diff; the transcript remains a viewport
-so the app can keep its header and prompt visible. -/
+so the app can keep its header and prompt visible. Entries are stored newest first, so rendering
+stops as soon as the viewport is full. -/
 private def fitEntries (theme : ColorScheme) (width budget : Nat)
     (entries : List Entry) : List Text :=
-  let newestFirst := (entries.map (entryView theme width)).reverse
-  let rec keep (remaining : Nat) (kept : List Text) : List Text → List Text
-    | [] => kept
-    | view :: older =>
-        if view.height > remaining then kept
-        else keep (remaining - view.height) (view :: kept) older
-  match keep budget [] newestFirst, newestFirst with
-  -- A single entry taller than the viewport would otherwise blank the transcript: show its tail.
-  | [], newest :: _ => [joinLines ((splitLines newest).drop (newest.height - budget))]
-  | kept, _ => kept
+  let rec keep (remaining : Nat) (kept : List Text) : List Entry → List Text
+    | [] => kept.reverse
+    | entry :: older =>
+        let view := entryView theme width entry
+        if view.height > remaining then
+          if kept.isEmpty then
+            -- A single entry taller than the viewport would otherwise blank the transcript.
+            [joinLines ((splitLines view).drop (view.height - remaining))]
+          else
+            kept.reverse
+        else
+          keep (remaining - view.height) (view :: kept) older
+  keep budget [] entries
 
 private def withBackground (theme : ColorScheme) (text : Text) : Text :=
   { segments := text.segments.map fun segment =>
@@ -286,7 +290,7 @@ private def replaceReferences (entries : List Entry) (input : String) : Except S
   | .ok (false, (_, built)) => .ok (String.ofList built.reverse)
 
 private def push (app : App) (entry : Entry) : App :=
-  { app with entries := app.entries ++ [entry] }
+  { app with entries := entry :: app.entries }
 
 private def finishJob (app : App) : App :=
   let remaining := app.activeJobs.pred
@@ -375,7 +379,7 @@ private def backgroundJobs : Repl.Terminal.JobConfig App where
     let cell := app.nextCell
     { app with
       nextCell := cell + 1
-      entries := app.entries ++ [Entry.ask cell raw]
+      entries := Entry.ask cell raw :: app.entries
       activeJobs := app.activeJobs + 1
       busy := true }
   run := fun cancellation app raw => do
