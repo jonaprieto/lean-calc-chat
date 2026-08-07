@@ -352,8 +352,7 @@ def themeView (theme : ColorScheme) (width : Nat) (current : String) : Text :=
     Text.styled "██" (Style.fg scheme.red))))
 
 /-- Every widget the stack ships, rendered as one still frame. The live showcase in `Main` drives
-the same configuration through `LiveProgress`, `LiveIndeterminateProgress`, `LiveSpinner`,
-`LiveShimmer`, `LiveStatus`, and `LiveTable`. -/
+the same pure renderers through `LiveRegion`. -/
 def widgetGallery (theme : ColorScheme) (width : Nat) (frame : Nat) : Text :=
   panel theme width "widgets" (joinLines
     [ progressBar (progressConfig theme width)

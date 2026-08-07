@@ -148,9 +148,6 @@ private def screenView (app : App) (size : Size) (showPrompt : Bool) : Text :=
       (if views.isEmpty then emptyTranscript app.theme else joinLines views) ++
       (if showPrompt then Text.plain "\n\n" ++ foot else Text.empty)
 
-private def render (screen : Screen) (app : App) (showPrompt : Bool := true) : IO Screen := do
-  screen.render (screenView app (← currentSize) showPrompt)
-
 /-! ## Live widgets -/
 
 /-- The spinner-and-shimmer indicator, redrawn in place while a result is computed. -/
@@ -174,37 +171,48 @@ private def showcase (theme : ColorScheme) (width : Nat) : IO Unit := do
   unless ← stdoutSupportsControl do
     return
   let label := fun (text : String) => Text.styled text (Style.fg theme.foreground)
-  let mut progress := LiveProgress.start (progressConfig theme width)
+  let progressConfig := progressConfig theme width
+  let mut progress := LiveRegion.start
   for current in List.range 11 do
-    progress ← progress.update { current, total := 10, label := label "progress" }
+    progress ← progress.updateText
+      (progressBar progressConfig { current, total := 10, label := label "progress" })
     IO.sleep tickMs
   let _ ← progress.finish
-  let mut scanning := LiveIndeterminateProgress.start (indeterminateConfig theme width)
+  let scanningConfig := indeterminateConfig theme width
+  let mut scanning := LiveRegion.start
   for frame in List.range 18 do
-    scanning ← scanning.update { frame, label := label "indeterminate" }
+    scanning ← scanning.updateText
+      (indeterminateProgressBar scanningConfig { frame, label := label "indeterminate" })
     IO.sleep tickMs
   let _ ← scanning.finish
-  let mut spinner := LiveSpinner.start (spinnerConfig theme)
+  let spinnerConfig := spinnerConfig theme
+  let mut spinner := LiveRegion.start
   for frame in List.range 14 do
-    spinner ← spinner.update { frame, label := label "spinner" }
+    spinner ← spinner.updateText (renderSpinner spinnerConfig { frame, label := label "spinner" })
     IO.sleep tickMs
   let _ ← spinner.finish
-  let mut glow := LiveShimmer.start (Text.plain "shimmer") (shimmerConfig theme)
-  for _ in List.range 16 do
-    glow ← glow.tick
+  let shimmerConfig := shimmerConfig theme
+  let mut glow := LiveRegion.start
+  for frame in List.range 16 do
+    glow ← glow.updateText (shimmer shimmerConfig { frame } (Text.plain "shimmer"))
     IO.sleep tickMs
   let _ ← glow.finish
-  let status := LiveStatus.start
-  let status ← status.update .warning (Text.styled "status: warning" (Style.fg theme.yellow))
+  let mut status := LiveRegion.start
+  status ← status.updateText (renderStatus .warning
+    (Text.styled "status: warning" (Style.fg theme.yellow)))
   IO.sleep stepMs
-  let status ← status.update .success (Text.styled "status: ready" (Style.fg theme.green))
+  status ← status.updateText (renderStatus .success
+    (Text.styled "status: ready" (Style.fg theme.green)))
   let _ ← status.finish
-  let table := LiveTable.start (showcaseTableWidths width) tableGap
-  let table ← table.update
-    [showcaseHeader theme, [Text.plain "table", Text.styled "running" (Style.fg theme.yellow)]]
+  let tableWidths := showcaseTableWidths width
+  let mut table := LiveRegion.start
+  table ← table.updateText (renderTable tableWidths
+    [showcaseHeader theme
+      , [Text.plain "table", Text.styled "running" (Style.fg theme.yellow)]] tableGap)
   IO.sleep stepMs
-  let table ← table.update
-    [showcaseHeader theme, [Text.plain "table", Text.styled "done" (Style.fg theme.green)]]
+  table ← table.updateText (renderTable tableWidths
+    [showcaseHeader theme
+      , [Text.plain "table", Text.styled "done" (Style.fg theme.green)]] tableGap)
   let _ ← table.finish
   pure ()
 
@@ -313,56 +321,53 @@ private def runCommand (app : App) (cell : Nat) (line : String) : App :=
   | ["/quit"] | ["/exit"] => { app with running := false }
   | _ => push app (messageFailure (some cell) s!"'{line}' is not a command. Try /help.")
 
-private def submit (screen : Screen) (app : App) (raw : String) : IO (Screen × App) := do
+private def submit (app : App) (raw : String) : IO App := do
   let width := (← currentSize).columns
   let cell := app.nextCell
   let app := push { app with
       nextCell := cell + 1 } (Entry.ask cell raw)
   if raw.startsWith "/" then
     if words raw == ["/showcase"] then
-      let _ ← render screen app (showPrompt := false)
-      let (screen, ()) ← Repl.Terminal.suspend (showcase app.theme width)
-      return (screen, push app (.note (.widgets 6)))
+      let (_, ()) ← Repl.Terminal.suspend (showcase app.theme width)
+      return push app (.note (.widgets 6))
     if let ["/load", path] := words raw then
       let source ← try IO.FS.readFile ⟨path⟩ catch error =>
         let next := push app (messageFailure (some cell) s!"could not read '{path}': {error}")
-        return (← render screen next, next)
+        return next
       let source := source.trimAscii.toString
-      let screen ← render screen app (showPrompt := false)
       match replaceReferences app.entries source with
-      | .error message => return (screen, push app (messageFailure (some cell) message))
+      | .error message => return push app (messageFailure (some cell) message)
       | .ok expanded =>
           match evaluateDetailed app.ans expanded with
           | .ok value =>
               let text := formatValue value
-              return (screen, { push app (Entry.answer cell text) with
+              return { push app (Entry.answer cell text) with
                 ans := value
-                history := app.history ++ [(raw, text)] })
-          | .error (.parse error) => return (screen, push app (parseFailure cell expanded error))
+                history := app.history ++ [(raw, text)] }
+          | .error (.parse error) => return push app (parseFailure cell expanded error)
           | .error (.evaluation message) =>
-              return (screen, push app (messageFailure (some cell) message))
+              return push app (messageFailure (some cell) message)
     let app := runCommand app cell raw
-    return (← render screen app, app)
-  let screen ← render screen app (showPrompt := false)
+    return app
   match replaceReferences app.entries raw with
-  | .error message => return (screen, push app (messageFailure (some cell) message))
+  | .error message => return push app (messageFailure (some cell) message)
   | .ok expanded =>
       if expanded.startsWith "/" then
         if words expanded == ["/showcase"] then
-          let (screen, ()) ← Repl.Terminal.suspend (showcase app.theme width)
-          return (screen, push app (.note (.widgets 6)))
+          let (_, ()) ← Repl.Terminal.suspend (showcase app.theme width)
+          return push app (.note (.widgets 6))
         let app := runCommand app cell expanded
-        return (← render screen app, app)
+        return app
       thinking app.theme
       match evaluateDetailed app.ans expanded with
       | .ok value =>
           let text := formatValue value
-          return (screen, { push app (Entry.answer cell text) with
+          return { push app (Entry.answer cell text) with
             ans := value
-            history := app.history ++ [(raw, text)] })
-      | .error (.parse error) => return (screen, push app (parseFailure cell expanded error))
+            history := app.history ++ [(raw, text)] }
+      | .error (.parse error) => return push app (parseFailure cell expanded error)
       | .error (.evaluation message) =>
-          return (screen, push app (messageFailure (some cell) message))
+          return push app (messageFailure (some cell) message)
 
 private def backgroundJobs : Repl.Terminal.JobConfig App where
   shouldRun := fun _ line => !line.startsWith "/"
@@ -373,29 +378,29 @@ private def backgroundJobs : Repl.Terminal.JobConfig App where
       entries := app.entries ++ [Entry.ask cell raw]
       activeJobs := app.activeJobs + 1
       busy := true }
-  run := fun cancellation screen app raw => do
+  run := fun cancellation app raw => do
     unless ← Repl.Terminal.Cancellation.sleep cancellation 500 do
-      return (screen, app)
+      return app
     if ← Repl.Terminal.Cancellation.isCancelled cancellation then
-      return (screen, app)
+      return app
     let cell := app.nextCell - 1
     match replaceReferences app.entries raw with
     | .error message =>
-        pure (screen, { app with jobResult := (some
-          { entry := messageFailure (some cell) message }) })
+        pure { app with jobResult := (some
+          { entry := messageFailure (some cell) message }) }
     | .ok expanded =>
         match evaluateDetailed app.ans expanded with
         | .ok value =>
             let text := formatValue value
-            pure (screen, { app with jobResult := (some
+            pure { app with jobResult := (some
               { entry := .answer cell text
-                answer := some (value, (raw, text)) }) })
+                answer := some (value, (raw, text)) }) }
         | .error (.parse error) =>
-            pure (screen, { app with jobResult := (some
-              { entry := parseFailure cell expanded error }) })
+            pure { app with jobResult := (some
+              { entry := parseFailure cell expanded error }) }
         | .error (.evaluation message) =>
-            pure (screen, { app with jobResult := (some
-              { entry := messageFailure (some cell) message }) })
+            pure { app with jobResult := (some
+              { entry := messageFailure (some cell) message }) }
   finish := mergeJobResult
   cancel := fun app => { app with activeJobs := 0, jobResult := none, busy := false }
   fail := fun app message => finishJob (push app (messageFailure none message))
