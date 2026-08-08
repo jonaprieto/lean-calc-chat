@@ -192,7 +192,7 @@ def compactHeader (theme : ColorScheme) (width : Nat) : Text :=
 too. -/
 inductive Note where
   | help
-  | history (rows : List (String × String))
+  | history (rows : List (Nat × (String × String)))
   | theme (current : String)
   | widgets (frame : Nat)
 
@@ -274,20 +274,29 @@ def spinnerConfig (theme : ColorScheme) : SpinnerConfig :=
   { frames := defaultSpinnerFrames.map fun frame =>
       Text.styled frame.plainText (Style.fg theme.orange) }
 
-/-- Brightness sweep used by the thinking indicator and the shimmer showcase. -/
-def shimmerConfig (theme : ColorScheme) : ShimmerConfig :=
-  { base := theme.comment, highlight := theme.orange, band := 5, phaseStep := 1 }
-
 /-- Column widths for the showcase table. -/
 def showcaseTableWidths (width : Nat) : List Nat :=
   let inner := boxInnerWidth (panelWidth width) - tableGap
   let left := max minColumnWidth (splitLeft inner)
   [left, max minColumnWidth (inner - left)]
 
-/-- A spinner frame plus a shimmering label, for one animation frame. -/
+/-- The bounded workload used by the live showcase. -/
+def showcaseComputation (frame : Nat) : Nat × Nat :=
+  let limit := frame * 2_000
+  -- ponytail: O(n) demo workload; replace with a domain computation if the showcase needs more load.
+  (limit, (List.range limit).foldl (fun total value => total + value * value) 0)
+
+example : showcaseComputation 1 = (2_000, 2_664_667_000) := by native_decide
+
+/-- A spinner frame plus the current result of the showcase computation. -/
 def thinkingView (theme : ColorScheme) (frame : Nat) : Text :=
   indentText askIndent ++ spinnerFrame (spinnerConfig theme) frame ++ Text.plain " " ++
-    shimmer (shimmerConfig theme) { frame } (Text.plain "Computing…")
+    Text.styled "Computing…" (Style.fg theme.comment)
+
+/-- Show the current result of the showcase computation. -/
+def computationView (theme : ColorScheme) (frame : Nat) : Text :=
+  let (limit, total) := showcaseComputation frame
+  Text.styled s!"sum squares < {limit} = {total}" (Style.fg theme.cyan)
 
 /-! ## Slash-command panels -/
 
@@ -325,18 +334,28 @@ def helpView (theme : ColorScheme) (width : Nat) : Text :=
     , [command "/clear /quit", Text.plain "reset the chat, leave"] ] tableGap)
 
 /-- The `/history` panel. Rows are newest last. -/
-def historyView (theme : ColorScheme) (width : Nat) (rows : List (String × String)) : Text :=
+def historyView (theme : ColorScheme) (width : Nat)
+    (rows : List (Nat × (String × String))) : Text :=
   if rows.isEmpty then
     panel theme width "history" (Text.styled "Nothing evaluated yet."
       (Style.dim <+> Style.fg theme.comment))
   else
-    let inner := boxInnerWidth (panelWidth width) - tableGap
-    let leftWidth := max minPaneWidth (splitLeft inner)
-    panel theme width "history" (renderTable [leftWidth, max minColumnWidth (inner - leftWidth)]
-      (headerRow theme "expression" "result" ::
-        rows.map (fun (input, value) =>
-          [ Text.styled input (Style.fg theme.foreground)
-          , Text.styled value (Style.fg theme.green) ])) tableGap [.left, .right])
+    let tableWidth := boxInnerWidth (panelWidth width)
+    let available := tableWidth - 2 * tableGap
+    let indexWidth := max 1 (rows.foldl (fun widest (cell, _) =>
+      max widest (toString cell).length) 0)
+    let textWidth := available - indexWidth
+    let expressionWidth := max minColumnWidth (textWidth * leftColumnShare / 100)
+    panel theme width "history" (renderTable [indexWidth, expressionWidth,
+      max minColumnWidth (textWidth - expressionWidth)]
+      ([ Text.styled "#" (Style.bold <+> Style.fg theme.purple)
+       , Text.styled "expression" (Style.bold <+> Style.fg theme.purple)
+       , Text.styled "result" (Style.bold <+> Style.fg theme.purple) ] ::
+        rows.map (fun (cell, (input, value)) =>
+          [ Text.styled (toString cell) (Style.fg theme.comment)
+          , Text.styled input (Style.fg theme.foreground)
+          , Text.styled value (Style.fg theme.green) ])) tableGap
+      [.right, .left, .right])
 
 /-- The `/theme` panel: every palette, drawn in its own colours. -/
 def themeView (theme : ColorScheme) (width : Nat) (current : String) : Text :=
@@ -361,7 +380,7 @@ def widgetGallery (theme : ColorScheme) (width : Nat) (frame : Nat) : Text :=
         { frame, label := Text.styled "indeterminate" (Style.fg theme.foreground) }
     , renderSpinner (spinnerConfig theme)
         { frame, label := Text.styled "spinner" (Style.fg theme.foreground) }
-    , shimmer (shimmerConfig theme) { frame } (Text.plain "shimmer")
+    , computationView theme frame
     , renderStatus .success (Text.styled "status" (Style.fg theme.green))
     , renderTable (showcaseTableWidths width)
         [ headerRow theme "table" "value"

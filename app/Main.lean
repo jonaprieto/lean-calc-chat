@@ -65,7 +65,7 @@ private def multilineInputConfig : Repl.MultilineConfig :=
 
 private structure JobResult where
   entry : Entry
-  answer : Option (Float × (String × String)) := none
+  answer : Option (Float × (Nat × (String × String))) := none
 
 private structure App where
   theme : ColorScheme := terracotta
@@ -73,7 +73,7 @@ private structure App where
   ans : Float := 0.0
   nextCell : Nat := 1
   entries : List Entry := []
-  history : List (String × String) := []
+  history : List (Nat × (String × String)) := []
   repl : Repl.State := {}
   activeJobs : Nat := 0
   jobResult : Option JobResult := none
@@ -105,7 +105,7 @@ stops as soon as the viewport is full. -/
 private def fitEntries (theme : ColorScheme) (width budget : Nat)
     (entries : List Entry) : List Text :=
   let rec keep (remaining : Nat) (kept : List Text) : List Entry → List Text
-    | [] => kept.reverse
+    | [] => kept
     | entry :: older =>
         let view := entryView theme width entry
         if view.height > remaining then
@@ -113,7 +113,7 @@ private def fitEntries (theme : ColorScheme) (width budget : Nat)
             -- A single entry taller than the viewport would otherwise blank the transcript.
             [joinLines ((splitLines view).drop (view.height - remaining))]
           else
-            kept.reverse
+            kept
         else
           keep (remaining - view.height) (view :: kept) older
   keep budget [] entries
@@ -154,7 +154,7 @@ private def screenView (app : App) (size : Size) (showPrompt : Bool) : Text :=
 
 /-! ## Live widgets -/
 
-/-- The spinner-and-shimmer indicator, redrawn in place while a result is computed. -/
+/-- The spinner indicator, redrawn in place while a result is computed. -/
 private def thinking (theme : ColorScheme) : IO Unit := do
   unless ← stdoutSupportsControl do
     return
@@ -195,12 +195,11 @@ private def showcase (theme : ColorScheme) (width : Nat) : IO Unit := do
     spinner ← spinner.updateText (renderSpinner spinnerConfig { frame, label := label "spinner" })
     IO.sleep tickMs
   let _ ← spinner.finish
-  let shimmerConfig := shimmerConfig theme
-  let mut glow := LiveRegion.start
-  for frame in List.range 16 do
-    glow ← glow.updateText (shimmer shimmerConfig { frame } (Text.plain "shimmer"))
+  let mut computation := LiveRegion.start
+  for frame in List.range 11 do
+    computation ← computation.updateText (computationView theme frame)
     IO.sleep tickMs
-  let _ ← glow.finish
+  let _ ← computation.finish
   let mut status := LiveRegion.start
   status ← status.updateText (renderStatus .warning
     (Text.styled "status: warning" (Style.fg theme.yellow)))
@@ -347,7 +346,7 @@ private def submit (app : App) (raw : String) : IO App := do
               let text := formatValue value
               return { push app (Entry.answer cell text) with
                 ans := value
-                history := app.history ++ [(raw, text)] }
+                history := app.history ++ [(cell, (raw, text))] }
           | .error (.parse error) => return push app (parseFailure cell expanded error)
           | .error (.evaluation message) =>
               return push app (messageFailure (some cell) message)
@@ -368,7 +367,7 @@ private def submit (app : App) (raw : String) : IO App := do
           let text := formatValue value
           return { push app (Entry.answer cell text) with
             ans := value
-            history := app.history ++ [(raw, text)] }
+            history := app.history ++ [(cell, (raw, text))] }
       | .error (.parse error) => return push app (parseFailure cell expanded error)
       | .error (.evaluation message) =>
           return push app (messageFailure (some cell) message)
@@ -398,7 +397,7 @@ private def backgroundJobs : Repl.Terminal.JobConfig App where
             let text := formatValue value
             pure { app with jobResult := (some
               { entry := .answer cell text
-                answer := some (value, (raw, text)) }) }
+                answer := some (value, (cell, (raw, text))) }) }
         | .error (.parse error) =>
             pure { app with jobResult := (some
               { entry := parseFailure cell expanded error }) }
@@ -412,6 +411,7 @@ private def backgroundJobs : Repl.Terminal.JobConfig App where
 /-! ## Run modes -/
 
 private def interactive (start : App) : IO Unit := do
+  clearScreen
   Repl.Terminal.run
     { initial := start
       inputConfig := inputConfig
@@ -439,7 +439,7 @@ private def staticDemo (start : App) : IO Unit := do
   for entry in start.entries do
     writeTextLine (entryView theme width entry)
   let mut ans : Float := 0.0
-  let mut rows : List (String × String) := []
+  let mut rows : List (Nat × (String × String)) := []
   let mut cell := 1
   for sample in staticSamples do
     writeTextLine (entryView theme width (.ask cell sample))
@@ -447,7 +447,7 @@ private def staticDemo (start : App) : IO Unit := do
     | .ok value =>
         let text := formatValue value
         ans := value
-        rows := rows ++ [(sample, text)]
+        rows := rows ++ [(cell, (sample, text))]
         writeTextLine (entryView theme width (.answer cell text))
     | .error (.parse error) =>
         writeTextLine (entryView theme width (parseFailure cell sample error))
