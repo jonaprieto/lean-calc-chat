@@ -298,6 +298,28 @@ def computationView (theme : ColorScheme) (frame : Nat) : Text :=
   let (limit, total) := showcaseComputation frame
   Text.styled s!"sum squares < {limit} = {total}" (Style.fg theme.cyan)
 
+/-- Configuration shared by the collapsed and expanded showcase states. -/
+def collapsibleConfig (theme : ColorScheme) : CollapsibleConfig :=
+  { collapsedMarker := Text.styled "▸ " (Style.fg theme.cyan)
+    , expandedMarker := Text.styled "▾ " (Style.fg theme.cyan)
+    , summaryStyle := Style.fg theme.foreground
+    , bodyStyle := Style.dim <+> Style.fg theme.comment
+    , bodyPrefix := Text.plain "  "
+    , maxBodyLines := 3
+    , overflowText := Text.styled "… more" (Style.fg theme.yellow) }
+
+/-- Render one state of a collapsible build log. -/
+def collapsibleView (theme : ColorScheme) (width : Nat) (expanded : Bool) : Text :=
+  (renderCollapsible (collapsibleConfig theme) (boxInnerWidth (panelWidth width))
+    (Text.plain "build · 4 logs")
+    (Text.plain "fetch\nparse\ncompile\npackage")
+    { expanded }).text
+
+/-- Render elapsed time without tying the pure view to a clock. -/
+def timerView (theme : ColorScheme) (milliseconds : Nat) : Text :=
+  Text.styled s!"timer {milliseconds / 1000}.{milliseconds % 1000 / 100}s"
+    (Style.fg theme.yellow)
+
 /-! ## Slash-command panels -/
 
 private def panel (theme : ColorScheme) (width : Nat) (title : String) (body : Text) : Text :=
@@ -381,6 +403,9 @@ def widgetGallery (theme : ColorScheme) (width : Nat) (frame : Nat) : Text :=
     , renderSpinner (spinnerConfig theme)
         { frame, label := Text.styled "spinner" (Style.fg theme.foreground) }
     , computationView theme frame
+    , timerView theme (frame * 60)
+    , collapsibleView theme width false
+    , collapsibleView theme width true
     , renderStatus .success (Text.styled "status" (Style.fg theme.green))
     , renderTable (showcaseTableWidths width)
         [ headerRow theme "table" "value"

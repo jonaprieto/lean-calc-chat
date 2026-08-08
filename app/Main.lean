@@ -200,6 +200,18 @@ private def showcase (theme : ColorScheme) (width : Nat) : IO Unit := do
     computation ← computation.updateText (computationView theme frame)
     IO.sleep tickMs
   let _ ← computation.finish
+  let mut collapsible := LiveRegion.start
+  for expanded in [false, true] do
+    collapsible ← collapsible.updateText (collapsibleView theme width expanded)
+    IO.sleep stepMs
+  let _ ← collapsible.finish
+  let timerStart ← IO.monoNanosNow
+  let mut timer := LiveRegion.start
+  for _ in List.range 11 do
+    let now ← IO.monoNanosNow
+    timer ← timer.updateText (timerView theme ((now - timerStart) / 1_000_000))
+    IO.sleep tickMs
+  let _ ← timer.finish
   let mut status := LiveRegion.start
   status ← status.updateText (renderStatus .warning
     (Text.styled "status: warning" (Style.fg theme.yellow)))
