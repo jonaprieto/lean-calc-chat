@@ -17,10 +17,15 @@ CALC_THEME=dracula lake exe calc
 CALC_NONINTERACTIVE=1 lake exe calc
 ```
 
-On a TTY, `Enter` evaluates, `Esc` quits, arrow keys recall history, `Tab` completes commands,
-and `Ctrl-N` inserts a line break. Submitted expressions run independently; completed results
-merge into the current transcript by cell. `/help`, `/history`, `/showcase`, `/theme`, `/clear`,
-and `/quit` are available commands.
+The default palette is `aurora`; `CALC_THEME` or `/theme` can select another palette.
+
+On a TTY, `Enter` evaluates, `Esc` quits, arrow keys recall input history, `Tab` completes
+commands, and `Ctrl-N` inserts a line break. Submitted expressions run independently; completed
+results merge into the current transcript by cell, with evaluation time shown on each answer.
+`/help`, `/history`, `/showcase`, `/theme`,
+`/clear`, and `/quit` are available commands. `/history` toggles the side drawer when the window
+is wide enough; uppercase `H` and `K` focus the calculator and history columns. With history
+focused, arrow keys or the mouse wheel scroll it; clicking either pane changes focus.
 
 Supported operators are `+ - * / % ^`; built-in functions include `sqrt`, `abs`, `floor`, `ceil`,
 `round`, `ln`, `exp`, `sin`, `cos`, and `tan`. Constants include `pi`, `tau`, `e`, and `ans`.

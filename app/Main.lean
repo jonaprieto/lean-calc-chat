@@ -43,6 +43,12 @@ private def nonInteractiveEnvVar : String := "CALC_NONINTERACTIVE"
 /-- Milliseconds between animation frames. -/
 private def tickMs : UInt32 := 60
 
+/-- Interactive redraw cadence; input processing is independent of this frame budget. -/
+private def renderMs : UInt32 := 16
+
+/-- Lines moved by one history scroll command or mouse wheel event. -/
+private def historyScrollStep : Nat := 3
+
 /-- Milliseconds a showcase step holds before advancing. -/
 private def stepMs : UInt32 := 320
 
@@ -52,8 +58,8 @@ private def thinkingFrames : Nat := 14
 /-- Terminal size assumed when the real one cannot be determined. -/
 private def fallbackSize : Size := { columns := defaultWidth, rows := 24 }
 
-/-- Rows the chat loop reserves for the blank lines between banner, transcript, and prompt. -/
-private def chromeRows : Nat := 4
+/-- Rows the chat loop reserves for one blank line around the transcript. -/
+private def chromeRows : Nat := 2
 
 /-- Longest expression the prompt accepts. -/
 private def inputConfig : TextInputConfig := { width := 120, maxLength := 120 }
@@ -68,12 +74,15 @@ private structure JobResult where
   answer : Option (Float × (Nat × (String × String))) := none
 
 private structure App where
-  theme : ColorScheme := terracotta
+  theme : ColorScheme := aurora
   themeName : String := defaultThemeName
   ans : Float := 0.0
   nextCell : Nat := 1
   entries : List Entry := []
   history : List (Nat × (String × String)) := []
+  historyOpen : Bool := false
+  focusColumn : Nat := 0
+  historyOffset : Nat := 0
   repl : Repl.State := {}
   activeJobs : Nat := 0
   jobResult : Option JobResult := none
@@ -81,6 +90,9 @@ private structure App where
   running : Bool := true
 
 private def currentSize : IO Size := Repl.Terminal.currentSize fallbackSize
+
+private def elapsedSince (started : Nat) : IO Nat := do
+  pure ((← IO.monoNanosNow) - started)
 
 private def messageFailure (cell : Option Nat) (message : String) : Entry :=
   .failure cell #[] (Diagnostic.error message)
@@ -131,7 +143,7 @@ private def opaqueScreen (theme : ColorScheme) (size : Size) (content : Text) : 
   let lines := lines.map (fun line => withBackground theme (padRight width line))
   joinLines (lines ++ List.replicate (rows - lines.length) blank)
 
-private def screenView (app : App) (size : Size) (showPrompt : Bool) : Text :=
+private def calcContent (app : App) (size : Size) (showPrompt : Bool) : Text :=
   let width := size.columns
   let head :=
     if app.entries.isEmpty then banner app.theme width else compactHeader app.theme width
@@ -143,14 +155,31 @@ private def screenView (app : App) (size : Size) (showPrompt : Bool) : Text :=
     else Text.empty
   let foot := promptView app.theme width app.repl.input ++ menu.getD Text.empty ++
     status ++ Text.plain "\n" ++
-    footerView app.theme width app.themeName app.ans
+    footerView app.theme width app.themeName app.ans app.busy ++
+    if app.historyOpen then
+      Text.plain "\n" ++ Text.styled
+        (if app.focusColumn == 0 then "H/K switch columns • calc active"
+         else "H/K switch columns • history active")
+        (Style.dim <+> Style.fg app.theme.comment)
+    else Text.empty
   let used := head.height + (if showPrompt then foot.height else 0) + chromeRows
   let budget := if size.rows > used then size.rows - used else 1
   let views := fitEntries app.theme width budget app.entries
-  opaqueScreen app.theme size <|
-    head ++ Text.plain "\n\n" ++
-      (if views.isEmpty then emptyTranscript app.theme else joinLines views) ++
-      (if showPrompt then Text.plain "\n\n" ++ foot else Text.empty)
+  let transcript := if views.isEmpty then emptyTranscript app.theme else joinLines views
+  head ++ Text.plain "\n" ++
+    fillHeight budget transcript ++
+    (if showPrompt then Text.plain "\n" ++ foot else Text.empty)
+
+private def screenView (app : App) (size : Size) (showPrompt : Bool) : Text :=
+  match app.historyOpen, historyDrawerWidths size.columns with
+  | true, some (leftWidth, rightWidth) =>
+      let left := calcContent app { size with columns := leftWidth } showPrompt
+      let history := historyDrawerView app.theme rightWidth app.history (app.focusColumn == 1)
+        size.rows app.historyOffset
+      opaqueScreen app.theme size <|
+        columns [leftWidth, rightWidth] tableGap [left, history] []
+          (Text.styled "│" (Style.fg app.theme.selection))
+  | _, _ => opaqueScreen app.theme size (calcContent app size showPrompt)
 
 /-! ## Live widgets -/
 
@@ -262,7 +291,7 @@ private def cellInput : List Entry → Nat → Option String
 
 private def cellOutput : List Entry → Nat → Option String
   | [], _ => none
-  | .answer number value :: rest, cell =>
+  | .answer number value _ :: rest, cell =>
       if number == cell then some value else cellOutput rest cell
   | _ :: rest, cell => cellOutput rest cell
 
@@ -312,7 +341,7 @@ private def applyJobResult (app : App) (result : JobResult) : App :=
   match result.answer with
   | none => app
   | some (value, history) =>
-      { app with ans := value, history := app.history ++ [history] }
+      { app with ans := value, history := history :: app.history }
 
 private def mergeJobResult (current completed : App) : App :=
   let current := match completed.jobResult with
@@ -323,7 +352,11 @@ private def mergeJobResult (current completed : App) : App :=
 private def runCommand (app : App) (cell : Nat) (line : String) : App :=
   match words line with
   | ["/help"] => push app (.note .help)
-  | ["/history"] => push app (.note (.history app.history))
+  | ["/history"] =>
+      let opening := !app.historyOpen
+      { app with
+        historyOpen := opening
+        historyOffset := if opening then 0 else app.historyOffset }
   | ["/theme"] => push app (.note (.theme app.themeName))
   | ["/theme", name] =>
       match themeByName name with
@@ -353,12 +386,14 @@ private def submit (app : App) (raw : String) : IO App := do
       match replaceReferences app.entries source with
       | .error message => return push app (messageFailure (some cell) message)
       | .ok expanded =>
+          let started ← IO.monoNanosNow
           match evaluateDetailed app.ans expanded with
           | .ok value =>
               let text := formatValue value
-              return { push app (Entry.answer cell text) with
+              let elapsed ← elapsedSince started
+              return { push app (Entry.answer cell text (some elapsed)) with
                 ans := value
-                history := app.history ++ [(cell, (raw, text))] }
+                history := (cell, (raw, text)) :: app.history }
           | .error (.parse error) => return push app (parseFailure cell expanded error)
           | .error (.evaluation message) =>
               return push app (messageFailure (some cell) message)
@@ -373,13 +408,14 @@ private def submit (app : App) (raw : String) : IO App := do
           return push app (.note (.widgets 6))
         let app := runCommand app cell expanded
         return app
-      thinking app.theme
+      let started ← IO.monoNanosNow
       match evaluateDetailed app.ans expanded with
       | .ok value =>
           let text := formatValue value
-          return { push app (Entry.answer cell text) with
+          let elapsed ← elapsedSince started
+          return { push app (Entry.answer cell text (some elapsed)) with
             ans := value
-            history := app.history ++ [(cell, (raw, text))] }
+            history := (cell, (raw, text)) :: app.history }
       | .error (.parse error) => return push app (parseFailure cell expanded error)
       | .error (.evaluation message) =>
           return push app (messageFailure (some cell) message)
@@ -394,9 +430,8 @@ private def backgroundJobs : Repl.Terminal.JobConfig App where
       activeJobs := app.activeJobs + 1
       busy := true }
   run := fun cancellation app raw => do
-    unless ← Repl.Terminal.Cancellation.sleep cancellation 500 do
-      return app
-    if ← Repl.Terminal.Cancellation.isCancelled cancellation then
+    -- Let the event reader install its wake path before a very fast job completes.
+    unless ← Repl.Terminal.Cancellation.sleep cancellation 10 do
       return app
     let cell := app.nextCell - 1
     match replaceReferences app.entries raw with
@@ -404,11 +439,13 @@ private def backgroundJobs : Repl.Terminal.JobConfig App where
         pure { app with jobResult := (some
           { entry := messageFailure (some cell) message }) }
     | .ok expanded =>
+        let started ← IO.monoNanosNow
         match evaluateDetailed app.ans expanded with
         | .ok value =>
             let text := formatValue value
+            let elapsed ← elapsedSince started
             pure { app with jobResult := (some
-              { entry := .answer cell text
+              { entry := .answer cell text (some elapsed)
                 answer := some (value, (cell, (raw, text))) }) }
         | .error (.parse error) =>
             pure { app with jobResult := (some
@@ -420,6 +457,52 @@ private def backgroundJobs : Repl.Terminal.JobConfig App where
   cancel := fun app => { app with activeJobs := 0, jobResult := none, busy := false }
   fail := fun app message => finishJob (push app (messageFailure none message))
 
+private def handleHistoryKey (app : App) (key : Key) : Option App :=
+  if !app.historyOpen then none
+  else
+    match key with
+    | .char 'H' => some { app with focusColumn := 0 }
+    | .char 'K' => some { app with focusColumn := 1 }
+    | .up | .pageUp =>
+        if app.focusColumn == 1 then
+          some { app with historyOffset := app.historyOffset + historyScrollStep }
+        else none
+    | .down | .pageDown =>
+        if app.focusColumn == 1 then
+          some { app with historyOffset := app.historyOffset - historyScrollStep }
+        else none
+    | _ => none
+
+private def handleHistoryMouse (app : App) (size : Size) (mouse : MouseEvent) : Option App :=
+  if !app.historyOpen then none
+  else
+    match historyDrawerWidths size.columns with
+    | none => none
+    | some (leftWidth, rightWidth) =>
+        let historyLeft := leftWidth + tableGap + 1
+        let historyRight := historyLeft + rightWidth - 1
+        let inHistory := mouse.column >= historyLeft && mouse.column <= historyRight
+        let inCalc := mouse.column >= 1 && mouse.column <= leftWidth
+        match mouse.action with
+        | .scrollUp =>
+            if inHistory then
+              some { app with
+                focusColumn := 1
+                historyOffset := app.historyOffset + historyScrollStep }
+            else none
+        | .scrollDown =>
+            if inHistory then
+              some { app with
+                focusColumn := 1
+                historyOffset := app.historyOffset - historyScrollStep }
+            else none
+        | .press =>
+            if mouse.button != .left then none
+            else if inHistory then some { app with focusColumn := 1 }
+            else if inCalc then some { app with focusColumn := 0 }
+            else none
+        | _ => none
+
 /-! ## Run modes -/
 
 private def interactive (start : App) : IO Unit := do
@@ -429,9 +512,12 @@ private def interactive (start : App) : IO Unit := do
       inputConfig := inputConfig
       multiline := some multilineInputConfig
       fallbackSize := fallbackSize
-      tickMs := tickMs
+      tickMs := renderMs
+      mouse := true
       view := fun app size => screenView app size true
       complete := fun _ input => completionIO input
+      handleKey := handleHistoryKey
+      handleMouse := handleHistoryMouse
       getState := fun app => app.repl
       setState := fun app repl => { app with repl }
       submit := submit
@@ -455,12 +541,14 @@ private def staticDemo (start : App) : IO Unit := do
   let mut cell := 1
   for sample in staticSamples do
     writeTextLine (entryView theme width (.ask cell sample))
+    let started ← IO.monoNanosNow
     match evaluateDetailed ans sample with
     | .ok value =>
         let text := formatValue value
+        let elapsed ← elapsedSince started
         ans := value
         rows := rows ++ [(cell, (sample, text))]
-        writeTextLine (entryView theme width (.answer cell text))
+        writeTextLine (entryView theme width (.answer cell text (some elapsed)))
     | .error (.parse error) =>
         writeTextLine (entryView theme width (parseFailure cell sample error))
     | .error (.evaluation message) =>

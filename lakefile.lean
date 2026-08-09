@@ -23,7 +23,7 @@ require «grip-diagnostics» from git
 
 require «termcolor-repl» from git
   "https://github.com/jonaprieto/lean-termcolor-repl.git"
-  @ "v0.6.2"
+  @ "d7650c9"
 
 @[default_target]
 lean_lib «Calc» where
