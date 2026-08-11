@@ -7,8 +7,10 @@ Authors: Claude
 import TermColor.ColorScheme
 import TermColor.Diagnostics
 import TermColor.Repl
+import TermColor.Repl.Command
 import TermColor.Terminal
 import Calc.Eval
+import Argus
 
 /-!
 # Calc.View: every pixel of the chat UI, as pure `Text`
@@ -28,7 +30,9 @@ Two conventions keep the layout honest:
 open TermColor
 open TermColor.Diagnostics
 open TermColor.Layout
+open TermColor.Repl
 open TermColor.Widgets
+open Argus
 open scoped TermColor.Style
 
 namespace Calc
@@ -88,6 +92,44 @@ def themeByName (name : String) : Option ColorScheme := List.lookup name themes
 
 /-- The comma-separated names shown by `/help`. -/
 def themeNames : String := String.intercalate ", " (themes.map Prod.fst)
+
+/-! ## Slash-command specification -/
+
+inductive Command where
+  | help
+  | history
+  | showcase
+  | theme (name : Option String)
+  | load (path : String)
+  | clear
+  | quit
+deriving Repr, BEq, DecidableEq
+
+private def themeParam : Param String :=
+  Param.named "THEME" (Param.enum (themes.map fun (name, _) => (name, name)))
+
+def commandSpec : CommandSpec Command :=
+  Argus.group "calc"
+    [ Argus.cmd "help" (Spec.map (fun _ => .help) (Spec.const ()))
+        (description := "Show calculator and command help")
+    , Argus.cmd "history" (Spec.map (fun _ => .history) (Spec.const ()))
+        (description := "Toggle the history drawer")
+    , Argus.cmd "showcase" (Spec.map (fun _ => .showcase) (Spec.const ()))
+        (description := "Run the live widget showcase")
+    , Argus.cmd "theme"
+        (Spec.map Command.theme (Spec.opt (Spec.arg "THEME" "Palette name" themeParam)))
+        (description := "Show or select a color theme")
+    , Argus.cmd "load" (Spec.map Command.load (Spec.arg "PATH" "Expression file" Param.path))
+        (description := "Evaluate one expression from a file")
+    , Argus.cmd "clear" (Spec.map (fun _ => .clear) (Spec.const ()))
+        (description := "Clear the transcript")
+    , Argus.cmd "quit" (Spec.map (fun _ => .quit) (Spec.const ()))
+        (description := "Leave the calculator")
+    , Argus.cmd "exit" (Spec.map (fun _ => .quit) (Spec.const ()))
+        (description := "Leave the calculator") ]
+
+def commandHelpRows : List (String × String) :=
+  (commandHelp commandSpec).map fun command => (command.usage, command.description)
 
 /-! ## Metrics
 
@@ -334,7 +376,8 @@ def showcaseTableWidths (width : Nat) : List Nat :=
 /-- The bounded workload used by the live showcase. -/
 def showcaseComputation (frame : Nat) : Nat × Nat :=
   let limit := frame * 2_000
-  -- ponytail: O(n) demo workload; replace with a domain computation if the showcase needs more load.
+  -- ponytail: O(n) demo workload; replace with a domain computation if the
+  -- showcase needs more load.
   (limit, (List.range limit).foldl (fun total value => total + value * value) 0)
 
 example : showcaseComputation 1 = (2_000, 2_664_667_000) := by native_decide
@@ -391,7 +434,10 @@ private def panelTableWidths (width leftWidth : Nat) : List Nat :=
 /-- The `/help` panel. -/
 def helpView (theme : ColorScheme) (width : Nat) : Text :=
   let command := fun (text : String) => Text.styled text (Style.fg theme.cyan)
+  let commandRows := commandHelpRows.map fun (usage, description) =>
+    [command usage, Text.plain description]
   panel theme width "help" (renderTable (panelTableWidths width helpKeyWidth)
+    (
     [ headerRow theme "input" "meaning"
     , [Text.plain "2+3*4   (1+2)^5", Text.plain "arithmetic, usual precedence"]
     , [Text.plain "-3^2    2^-2", Text.plain "unary minus, right-associative ^"]
@@ -399,14 +445,11 @@ def helpView (theme : ColorScheme) (width : Nat) : Text :=
     , [Text.plain "sqrt abs floor ceil", Text.plain "round ln exp sin cos tan"]
     , [Text.plain "pi tau e ans", Text.plain "constants and the last result"]
     , [Text.plain "[n]", Text.plain "reuse cell n's result or expression"]
-    , [command "/help  /history", Text.plain "this table, toggle history drawer"]
-    , [command "/showcase", Text.plain "run every live widget in the stack"]
-    , [command "/theme <name>", Text.plain themeNames]
-    , [command "/load <path>", Text.plain "evaluate one expression from a file"]
-    , [command "ctrl-n", Text.plain "insert a line break; enter evaluates"]
+    ] ++ commandRows ++ [
+    [command "ctrl-n", Text.plain "insert a line break; enter evaluates"]
     , [command "H/K", Text.plain "switch calculator/history columns"]
     , [command "↑/↓ + mouse wheel", Text.plain "scroll the focused history drawer"]
-    , [command "/clear /quit", Text.plain "reset the chat, leave"] ] tableGap)
+    , [command "CALC_THEME", Text.plain themeNames] ]) tableGap)
 
 /-- The `/history` panel. Rows are newest last. -/
 private def historyBody (theme : ColorScheme) (width : Nat)
