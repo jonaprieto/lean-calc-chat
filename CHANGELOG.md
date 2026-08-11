@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.5.5
+
+- Correct the release tag after the pre-existing `v0.5.4` tag was found to
+  point at an earlier package revision.
+
 ## 0.5.4
 
 - Consume the published spec-driven TermColor REPL `v0.8.1` and Argus `v0.5.0`.
