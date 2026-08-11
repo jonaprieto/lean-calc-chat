@@ -7,7 +7,7 @@ Authors: Claude
 import Calc
 import GripDiagnostics
 import TermColor.Repl
-import TermColor.Repl.FileCompletion
+import TermColor.Repl.Command
 import TermColor.Repl.Terminal
 
 /-!
@@ -262,26 +262,9 @@ private def showcase (theme : ColorScheme) (width : Nat) : IO Unit := do
 
 /-! ## Commands -/
 
-private def words (line : String) : List String :=
-  (line.splitOn " ").filter (fun word => !word.isEmpty)
-
-private def commandNames : List String :=
-  ["/help", "/history", "/showcase", "/theme", "/load", "/clear", "/quit", "/exit"]
-
-private def completionCandidates (input : TextInputState) : List Repl.Completion :=
-  match words input.value with
-  | [fragment] =>
-      commandNames.filter (·.startsWith fragment) |>.map (fun replacement => { replacement })
-  | ["/theme", fragment] =>
-      (themes.map Prod.fst).filter (·.startsWith fragment) |>.map
-        (fun name => { replacement := s!"/theme {name}" })
-  | _ => []
-
 private def completionIO (input : TextInputState) : IO (List Repl.Completion) :=
-  if input.value.startsWith "/load " then
-    defaultFileCompletions input
-  else
-    pure (completionCandidates input)
+  completeCommandWith commandSpec (fun typeName =>
+    if typeName == "THEME" then pure (themes.map Prod.fst) else pure []) input
 
 private def cellInput : List Entry → Nat → Option String
   | [], _ => none
@@ -349,25 +332,57 @@ private def mergeJobResult (current completed : App) : App :=
     | none => current
   finishJob { current with jobResult := none }
 
-private def runCommand (app : App) (cell : Nat) (line : String) : App :=
-  match words line with
-  | ["/help"] => push app (.note .help)
-  | ["/history"] =>
+private def runCommand (app : App) (cell : Nat) (command : Calc.Command) : App :=
+  match command with
+  | .help => push app (.note .help)
+  | .history =>
       let opening := !app.historyOpen
       { app with
         historyOpen := opening
         historyOffset := if opening then 0 else app.historyOffset }
-  | ["/theme"] => push app (.note (.theme app.themeName))
-  | ["/theme", name] =>
+  | .theme none => push app (.note (.theme app.themeName))
+  | .theme (some name) =>
       match themeByName name with
       | some scheme =>
           push { app with theme := scheme, themeName := name }
             (.note (.theme name))
       | none => push app (messageFailure (some cell)
           s!"'{name}' is not a theme. Try: {themeNames}.")
-  | ["/clear"] => { app with entries := [] }
-  | ["/quit"] | ["/exit"] => { app with running := false }
-  | _ => push app (messageFailure (some cell) s!"'{line}' is not a command. Try /help.")
+  | .clear => { app with entries := [] }
+  | .quit => { app with running := false }
+  | .showcase | .load _ => app
+
+private def submitCommand (app : App) (cell : Nat) (raw : String)
+    (width : Nat) (command : Calc.Command) : IO App :=
+  match command with
+  | .showcase => do
+      let _ ← Repl.Terminal.suspend (showcase app.theme width)
+      pure (push app (.note (.widgets 6)))
+  | .load path => do
+      let source ← try IO.FS.readFile ⟨path⟩ catch error =>
+        let next := push app (messageFailure (some cell) s!"could not read '{path}': {error}")
+        return next
+      let source := source.trimAscii.toString
+      match replaceReferences app.entries source with
+      | .error message => pure (push app (messageFailure (some cell) message))
+      | .ok expanded =>
+          let started ← IO.monoNanosNow
+          match evaluateDetailed app.ans expanded with
+          | .ok value =>
+              let text := formatValue value
+              let elapsed ← elapsedSince started
+              pure { push app (Entry.answer cell text (some elapsed)) with
+                ans := value
+                history := (cell, (raw, text)) :: app.history }
+          | .error (.parse error) => pure (push app (parseFailure cell expanded error))
+          | .error (.evaluation message) => pure (push app (messageFailure (some cell) message))
+  | _ => pure (runCommand app cell command)
+
+private def dispatchCommand (app : App) (cell : Nat) (raw : String)
+    (width : Nat) : IO App :=
+  match parseCommand commandSpec raw with
+  | .error message => pure (push app (messageFailure (some cell) message))
+  | .ok command => submitCommand app cell raw width command
 
 private def submit (app : App) (raw : String) : IO App := do
   let width := (← currentSize).columns
@@ -375,39 +390,12 @@ private def submit (app : App) (raw : String) : IO App := do
   let app := push { app with
       nextCell := cell + 1 } (Entry.ask cell raw)
   if raw.startsWith "/" then
-    if words raw == ["/showcase"] then
-      let (_, ()) ← Repl.Terminal.suspend (showcase app.theme width)
-      return push app (.note (.widgets 6))
-    if let ["/load", path] := words raw then
-      let source ← try IO.FS.readFile ⟨path⟩ catch error =>
-        let next := push app (messageFailure (some cell) s!"could not read '{path}': {error}")
-        return next
-      let source := source.trimAscii.toString
-      match replaceReferences app.entries source with
-      | .error message => return push app (messageFailure (some cell) message)
-      | .ok expanded =>
-          let started ← IO.monoNanosNow
-          match evaluateDetailed app.ans expanded with
-          | .ok value =>
-              let text := formatValue value
-              let elapsed ← elapsedSince started
-              return { push app (Entry.answer cell text (some elapsed)) with
-                ans := value
-                history := (cell, (raw, text)) :: app.history }
-          | .error (.parse error) => return push app (parseFailure cell expanded error)
-          | .error (.evaluation message) =>
-              return push app (messageFailure (some cell) message)
-    let app := runCommand app cell raw
-    return app
+    return ← dispatchCommand app cell raw width
   match replaceReferences app.entries raw with
   | .error message => return push app (messageFailure (some cell) message)
   | .ok expanded =>
       if expanded.startsWith "/" then
-        if words expanded == ["/showcase"] then
-          let (_, ()) ← Repl.Terminal.suspend (showcase app.theme width)
-          return push app (.note (.widgets 6))
-        let app := runCommand app cell expanded
-        return app
+        return ← dispatchCommand app cell expanded width
       let started ← IO.monoNanosNow
       match evaluateDetailed app.ans expanded with
       | .ok value =>
@@ -457,21 +445,38 @@ private def backgroundJobs : Repl.Terminal.JobConfig App where
   cancel := fun app => { app with activeJobs := 0, jobResult := none, busy := false }
   fail := fun app message => finishJob (push app (messageFailure none message))
 
-private def handleHistoryKey (app : App) (key : Key) : Option App :=
-  if !app.historyOpen then none
-  else
-    match key with
-    | .char 'H' => some { app with focusColumn := 0 }
-    | .char 'K' => some { app with focusColumn := 1 }
-    | .up | .pageUp =>
-        if app.focusColumn == 1 then
-          some { app with historyOffset := app.historyOffset + historyScrollStep }
-        else none
-    | .down | .pageDown =>
-        if app.focusColumn == 1 then
-          some { app with historyOffset := app.historyOffset - historyScrollStep }
-        else none
-    | _ => none
+private inductive AppKeyAction
+  | focusCalculator
+  | focusHistory
+  | historyScrollUp
+  | historyScrollDown
+
+private def appKeymap : Repl.Terminal.AppKeymap App where
+  Action := AppKeyAction
+  keymap := { bindings :=
+    [ { key := .char 'H', action := .focusCalculator,
+        context := some (KeyContext.ofString "history") }
+    , { key := .char 'K', action := .focusHistory,
+        context := some (KeyContext.ofString "history") }
+    , { key := .up, action := .historyScrollUp,
+        context := some (KeyContext.ofString "history-focus") }
+    , { key := .pageUp, action := .historyScrollUp,
+        context := some (KeyContext.ofString "history-focus") }
+    , { key := .down, action := .historyScrollDown,
+        context := some (KeyContext.ofString "history-focus") }
+    , { key := .pageDown, action := .historyScrollDown,
+        context := some (KeyContext.ofString "history-focus") } ] }
+  contexts := fun app =>
+    if !app.historyOpen then []
+    else if app.focusColumn == 1 then
+      [KeyContext.ofString "history", KeyContext.ofString "history-focus"]
+    else [KeyContext.ofString "history"]
+  handle := fun app action =>
+    some (match action with
+    | .focusCalculator => { app with focusColumn := 0 }
+    | .focusHistory => { app with focusColumn := 1 }
+    | .historyScrollUp => { app with historyOffset := app.historyOffset + historyScrollStep }
+    | .historyScrollDown => { app with historyOffset := app.historyOffset - historyScrollStep })
 
 private def handleHistoryMouse (app : App) (size : Size) (mouse : MouseEvent) : Option App :=
   if !app.historyOpen then none
@@ -516,7 +521,7 @@ private def interactive (start : App) : IO Unit := do
       mouse := true
       view := fun app size => screenView app size true
       complete := fun _ input => completionIO input
-      handleKey := handleHistoryKey
+      keymap := some appKeymap
       handleMouse := handleHistoryMouse
       getState := fun app => app.repl
       setState := fun app repl => { app with repl }

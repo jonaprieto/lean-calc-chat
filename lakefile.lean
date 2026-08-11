@@ -2,12 +2,16 @@ import Lake
 open Lake DSL
 
 package «calc-chat» where
-  version := v!"0.5.3"
+  version := v!"0.5.4"
   leanOptions := #[⟨`autoImplicit, false⟩, ⟨`relaxedAutoImplicit, false⟩]
 
 require «termcolor-terminal» from git
   "https://github.com/jonaprieto/lean-termcolor-terminal.git"
   @ "v0.3.1"
+
+require «termcolor-widgets» from git
+  "https://github.com/jonaprieto/lean-termcolor-widgets.git"
+  @ "v0.1.9"
 
 require «termcolor-diagnostics» from git
   "https://github.com/jonaprieto/lean-termcolor-diagnostics.git"
@@ -23,7 +27,11 @@ require «grip-diagnostics» from git
 
 require «termcolor-repl» from git
   "https://github.com/jonaprieto/lean-termcolor-repl.git"
-  @ "d7650c9"
+  @ "v0.8.1"
+
+require argus from git
+  "https://github.com/jonaprieto/lean-argus.git"
+  @ "v0.5.0"
 
 @[default_target]
 lean_lib «Calc» where
