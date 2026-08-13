@@ -9,6 +9,8 @@
 Chat-shaped terminal calculator in Lean 4. It combines Grip parsing, pure TermColor rendering,
 diagnostics, widgets, terminal input, themes, history, and concurrent background evaluations.
 
+<p align="center"><img src="docs/assets/calc-chat.png" alt="Calc Chat demo" width="700"></p>
+
 ## Run
 
 ```sh
