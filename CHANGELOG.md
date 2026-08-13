@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.5.8 — 2026-08-13
+
+- Add the standard review guidance to the README.
+
 ## 0.5.7 — 2026-08-13
 
 - Publish the dependency-graph README cleanup.
