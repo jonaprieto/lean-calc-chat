@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.5.6 — 2026-08-12
+
+- Adopt Lean v4.33.0 and precommit-lean v0.1.5.
+
 ## 0.5.5
 
 - Correct the release tag after the pre-existing `v0.5.4` tag was found to
