@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.5.9 — 2026-08-13
+
+- Clarify the direct related-project links.
+
 ## 0.5.8 — 2026-08-13
 
 - Add the standard review guidance to the README.

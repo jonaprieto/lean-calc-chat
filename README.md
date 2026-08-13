@@ -6,7 +6,7 @@
 [![Docs](https://img.shields.io/badge/docs-GitHub%20Pages-4c8bf5)](https://jonaprieto.github.io/lean-calc-chat/)
 [![License](https://img.shields.io/badge/license-Apache--2.0-green)](LICENSE)
 
-Chat-shaped terminal calculator in Lean 4. It combines [Grip parsing](https://github.com/jonaprieto/lean-grip), pure [TermColor rendering](https://github.com/jonaprieto/lean-termcolor),
+Chat-shaped terminal calculator in Lean 4. It combines [Grip parsing](https://github.com/jonaprieto/lean-grip), pure TermColor rendering,
 diagnostics, widgets, terminal input, themes, history, and concurrent background evaluations.
 
 <p align="center"><img src="docs/assets/calc-chat.png" alt="Calc Chat demo" width="700"></p>
