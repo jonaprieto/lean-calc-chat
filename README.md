@@ -1,4 +1,4 @@
-# calc-chat
+# lean-calc-chat
 
 [![CI](https://github.com/jonaprieto/lean-calc-chat/actions/workflows/ci.yml/badge.svg)](https://github.com/jonaprieto/lean-calc-chat/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/jonaprieto/lean-calc-chat?display_name=tag&sort=semver)](https://github.com/jonaprieto/lean-calc-chat/releases)
@@ -6,10 +6,22 @@
 [![Docs](https://img.shields.io/badge/docs-GitHub%20Pages-4c8bf5)](https://jonaprieto.github.io/lean-calc-chat/)
 [![License](https://img.shields.io/badge/license-Apache--2.0-green)](LICENSE)
 
-Chat-shaped terminal calculator in Lean 4. It combines Grip parsing, pure TermColor rendering,
+Chat-shaped terminal calculator in Lean 4. It combines [Grip parsing](https://github.com/jonaprieto/lean-grip), pure [TermColor rendering](https://github.com/jonaprieto/lean-termcolor),
 diagnostics, widgets, terminal input, themes, history, and concurrent background evaluations.
 
 <p align="center"><img src="docs/assets/calc-chat.png" alt="Calc Chat demo" width="700"></p>
+
+## Status and review
+
+These libraries are actively evolving and are developed with AI assistance and human review.
+CI and machine-checked proofs provide useful evidence, but do not guarantee correctness,
+soundness, portability, performance, or suitability for every use case. Validate behavior
+and assumptions before relying on a release.
+
+Reviewer feedback is welcome, especially on correctness, proofs, API design, usability,
+portability, performance, documentation, and real-world use. Please use the
+[issue tracker](https://github.com/jonaprieto/lean-calc-chat/issues) or open a PR with a
+reproducible example and the expected behavior.
 
 ## Run
 
