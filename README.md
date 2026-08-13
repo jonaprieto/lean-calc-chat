@@ -46,9 +46,13 @@ CALC_NONINTERACTIVE=1 lake exe calc
 
 ## Related projects
 
-[`termcolor-repl`](https://github.com/jonaprieto/lean-termcolor-repl) supplies reusable input and
-job-loop primitives. [`termcolor-terminal`](https://github.com/jonaprieto/lean-termcolor-terminal)
-owns terminal control.
+Built on [`grip`](https://github.com/jonaprieto/lean-grip),
+[`grip-diagnostics`](https://github.com/jonaprieto/lean-grip-diagnostics),
+[`termcolor-diagnostics`](https://github.com/jonaprieto/lean-termcolor-diagnostics),
+[`termcolor-widgets`](https://github.com/jonaprieto/lean-termcolor-widgets),
+[`termcolor-terminal`](https://github.com/jonaprieto/lean-termcolor-terminal), and
+[`argus`](https://github.com/jonaprieto/lean-argus). [`termcolor-repl`](https://github.com/jonaprieto/lean-termcolor-repl)
+supplies reusable input and job-loop primitives.
 
 ## License
 
