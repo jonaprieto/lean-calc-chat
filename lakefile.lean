@@ -7,31 +7,31 @@ package «calc-chat» where
 
 require «termcolor-terminal» from git
   "https://github.com/jonaprieto/lean-termcolor-terminal.git"
-  @ "v0.3.7"
+  @ "v0.3.8"
 
 require «termcolor-widgets» from git
   "https://github.com/jonaprieto/lean-termcolor-widgets.git"
-  @ "v0.1.14"
+  @ "v0.1.15"
 
 require «termcolor-diagnostics» from git
   "https://github.com/jonaprieto/lean-termcolor-diagnostics.git"
-  @ "v0.1.17"
+  @ "v0.1.18"
 
 require «grip» from git
   "https://github.com/jonaprieto/lean-grip.git"
-  @ "v0.3.5"
+  @ "v0.3.6"
 
 require «grip-diagnostics» from git
   "https://github.com/jonaprieto/lean-grip-diagnostics.git"
-  @ "v0.2.8"
+  @ "v0.2.9"
 
 require «termcolor-repl» from git
   "https://github.com/jonaprieto/lean-termcolor-repl.git"
-  @ "v0.8.7"
+  @ "v0.8.8"
 
 require argus from git
   "https://github.com/jonaprieto/lean-argus.git"
-  @ "v0.5.4"
+  @ "v0.5.5"
 
 @[default_target]
 lean_lib «Calc» where
