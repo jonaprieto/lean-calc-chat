@@ -9,6 +9,11 @@
 Chat-shaped terminal calculator in Lean 4. It combines [Grip parsing](https://github.com/jonaprieto/lean-grip), pure TermColor rendering,
 diagnostics, widgets, terminal input, themes, history, and concurrent background evaluations.
 
+## Problem
+
+The terminal stack needs a small end-to-end application that shows how parsing, diagnostics,
+rendering, interaction, and background work fit together.
+
 <p align="center"><img src="docs/assets/calc-chat.png" alt="Calc Chat demo" width="700"></p>
 
 ## Development
