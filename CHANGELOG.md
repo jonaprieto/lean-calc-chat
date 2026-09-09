@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.5.10 — 2026-09-08
+
+- Refresh first-party dependencies for the Lean 4.33.1 ecosystem releases.
+
 ## 0.5.9 — 2026-08-13
 
 - Clarify the direct related-project links.
