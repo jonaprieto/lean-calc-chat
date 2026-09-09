@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.5.11 — 2026-09-09
+
+- Refresh dependencies and document the contribution policy and package problem.
+
 ## 0.5.10 — 2026-09-08
 
 - Refresh first-party dependencies for the Lean 4.33.1 ecosystem releases.
