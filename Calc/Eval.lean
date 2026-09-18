@@ -54,7 +54,8 @@ inductive Expr where
 private
 def digitsToFloat
     (digits : List Char)
-    : Float :=
+    : Float
+    :=
   digits.foldl (fun value character =>
     value * 10.0 + (character.toNat - '0'.toNat).toFloat) 0.0
 
@@ -63,7 +64,8 @@ let through. -/
 private
 def floatOfLexeme
     (text : String)
-    : Option Float :=
+    : Option Float
+    :=
   match text.splitOn "." with
   | [whole] =>
       if whole.isEmpty then none else some (digitsToFloat whole.toList)
@@ -78,7 +80,8 @@ private
 def decodeNumber
     (arr : ByteArray)
     (start stop : Nat)
-    : Option Expr :=
+    : Option Expr
+    :=
   match String.fromUTF8? (arr.extract start stop) with
   | some text => (floatOfLexeme text).map Expr.number
   | none => none
@@ -107,7 +110,8 @@ private
 def foldBinary
     (first : Expr)
     (rest : List (Char × Expr))
-    : Expr :=
+    : Expr
+    :=
   rest.foldl (fun left (operator, right) => .binary operator left right) first
 
 /-! ## Grammar -/
@@ -158,7 +162,8 @@ def parser : GParser conditional Expr :=
 /-- Parse a line of input, keeping grip's positioned error. -/
 def parse
     (input : String)
-    : Except ParseError Expr :=
+    : Except ParseError Expr
+    :=
   GParser.parse parser input.toUTF8
 
 /-! ## Evaluating -/
@@ -167,7 +172,8 @@ private
 def applyFunction
     (function : String)
     (value : Float)
-    : Except String Float :=
+    : Except String Float
+    :=
   match function with
   | "sqrt" => if value < 0.0 then .error "sqrt needs a non-negative argument" else .ok value.sqrt
   | "abs" => .ok value.abs
@@ -185,7 +191,8 @@ private
 def applyOperator
     (operator : Char)
     (left right : Float)
-    : Except String Float :=
+    : Except String Float
+    :=
   match operator with
   | '+' => .ok (left + right)
   | '-' => .ok (left - right)
@@ -221,7 +228,8 @@ inductive EvalError where
 def evaluateDetailed
     (ans : Float)
     (input : String)
-    : Except EvalError Float :=
+    : Except EvalError Float
+    :=
   match parse input with
   | .error error => .error (.parse error)
   | .ok expression =>
@@ -233,7 +241,8 @@ def evaluateDetailed
 def evaluate
     (ans : Float)
     (input : String)
-    : Except String Float :=
+    : Except String Float
+    :=
   match evaluateDetailed ans input with
   | .ok value => .ok value
   | .error (.parse error) => .error (error.pretty input.toUTF8)
@@ -244,7 +253,8 @@ def evaluate
 private
 def trimTrailingZeros
     (text : String)
-    : String :=
+    : String
+    :=
   if text.contains '.' then
     let stripped := text.toList.reverse.dropWhile (· == '0')
     let stripped := match stripped with
@@ -257,7 +267,8 @@ def trimTrailingZeros
 /-- Format a result the way a calculator display would: no trailing zeros, named infinities. -/
 def formatValue
     (value : Float)
-    : String :=
+    : String
+    :=
   if value.isNaN then "nan"
   else if value.isInf then (if value < 0.0 then "-inf" else "inf")
   else trimTrailingZeros (toString value)
@@ -271,7 +282,8 @@ minus, the function table, and each failure path.
 private
 def evaluatesTo
     (input expected : String)
-    : Bool :=
+    : Bool
+    :=
   match evaluate 0.0 input with
   | .ok value => formatValue value == expected
   | .error _ => false
@@ -279,7 +291,8 @@ def evaluatesTo
 private
 def fails
     (input : String)
-    : Bool :=
+    : Bool
+    :=
   match evaluate 0.0 input with
   | .ok _ => false
   | .error _ => true
