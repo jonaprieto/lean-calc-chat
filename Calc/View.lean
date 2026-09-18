@@ -47,9 +47,7 @@ presets ship with `termcolor`; `aurora` and `terracotta` are this app's own.
 -/
 
 /-- Cool aurora colors, the default identity for Lean Calc. -/
-def aurora
-    : ColorScheme
-    where
+def aurora : ColorScheme where
   background := .rgb 13 24 37
   foreground := .rgb 225 241 245
   selection := .rgb 39 70 83
@@ -64,9 +62,7 @@ def aurora
   pink := .rgb 245 132 203
 
 /-- Warm terracotta on slate. -/
-def terracotta
-    : ColorScheme
-    where
+def terracotta : ColorScheme where
   background := .rgb 26 28 38
   foreground := .rgb 214 216 226
   selection := .rgb 74 78 96
@@ -81,8 +77,7 @@ def terracotta
   pink := .rgb 224 140 180
 
 /-- Every palette the UI can be drawn in, in the order `/theme` lists them. -/
-def themes
-    : List (String × ColorScheme) :=
+def themes : List (String × ColorScheme) :=
   [ ("aurora", aurora)
   , ("terracotta", terracotta)
   , ("catppuccin", ColorScheme.catppuccin)
@@ -110,13 +105,10 @@ inductive Command where
   | quit
 deriving Repr, BEq, DecidableEq
 
-private
-def themeParam
-    : Param String :=
+private def themeParam : Param String :=
   Param.named "THEME" (Param.enum (themes.map fun (name, _) => (name, name)))
 
-def commandSpec
-    : CommandSpec Command :=
+def commandSpec : CommandSpec Command :=
   Argus.group "calc"
     [ Argus.cmd "help" (Spec.map (fun _ => .help) (Spec.const ()))
         (description := "Show calculator and command help")
@@ -136,8 +128,7 @@ def commandSpec
     , Argus.cmd "exit" (Spec.map (fun _ => .quit) (Spec.const ()))
         (description := "Leave the calculator") ]
 
-def commandHelpRows
-    : List (String × String) :=
+def commandHelpRows : List (String × String) :=
   (commandHelp commandSpec).map fun command => (command.usage, command.description)
 
 /-! ## Metrics
@@ -331,9 +322,7 @@ def emptyTranscript
 
 /-! ## Prompt and footer -/
 
-private
-def roundedChars
-    : BoxChars :=
+private def roundedChars : BoxChars :=
   { topLeft := '╭', topRight := '╮', bottomLeft := '╰', bottomRight := '╯' }
 
 /-- Columns the `› ` prompt marker takes inside the input bar. -/
@@ -583,8 +572,8 @@ def historyRowsWindow
   let start := min rows.length offset
   ((rows.drop start).take count).reverse
 
-example
-    : (historyRowsWindow 4 0 [(1, ("1", "1")), (2, ("2", "2")), (3, ("3", "3"))]).length = 1 := by
+example : (historyRowsWindow 4 0
+    [(1, ("1", "1")), (2, ("2", "2")), (3, ("3", "3"))]).length = 1 := by
   native_decide
 
 private

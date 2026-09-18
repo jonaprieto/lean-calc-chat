@@ -64,9 +64,7 @@ private def chromeRows : Nat := 2
 /-- Longest expression the prompt accepts. -/
 private def inputConfig : TextInputConfig := { width := 120, maxLength := 120 }
 
-private
-def multilineInputConfig
-    : Repl.MultilineConfig :=
+private def multilineInputConfig : Repl.MultilineConfig :=
   { text := inputConfig, lineBreak := .ctrl 'n' }
 
 /-! ## State -/
@@ -93,7 +91,10 @@ private structure App where
 
 private def currentSize : IO Size := Repl.Terminal.currentSize fallbackSize
 
-private def elapsedSince (started : Nat) : IO Nat := do
+private
+def elapsedSince
+    (started : Nat)
+    : IO Nat := do
   pure ((← IO.monoNanosNow) - started)
 
 private
@@ -213,7 +214,10 @@ def screenView
 /-! ## Live widgets -/
 
 /-- The spinner indicator, redrawn in place while a result is computed. -/
-private def thinking (theme : ColorScheme) : IO Unit := do
+private
+def thinking
+    (theme : ColorScheme)
+    : IO Unit := do
   unless ← stdoutSupportsControl do
     return
   let mut region := LiveRegion.start
@@ -232,7 +236,11 @@ def showcaseHeader
 
 /-- Drive every live object the stack ships, in order. `Calc.widgetGallery` renders the same
 configuration as one still frame for non-interactive output. -/
-private def showcase (theme : ColorScheme) (width : Nat) : IO Unit := do
+private
+def showcase
+    (theme : ColorScheme)
+    (width : Nat)
+    : IO Unit := do
   unless ← stdoutSupportsControl do
     return
   let label := fun (text : String) => Text.styled text (Style.fg theme.foreground)
@@ -470,7 +478,11 @@ def dispatchCommand
   | .error message => pure (push app (messageFailure (some cell) message))
   | .ok command => submitCommand app cell raw width command
 
-private def submit (app : App) (raw : String) : IO App := do
+private
+def submit
+    (app : App)
+    (raw : String)
+    : IO App := do
   let width := (← currentSize).columns
   let cell := app.nextCell
   let app := push { app with
@@ -494,10 +506,7 @@ private def submit (app : App) (raw : String) : IO App := do
       | .error (.evaluation message) =>
           return push app (messageFailure (some cell) message)
 
-private
-def backgroundJobs
-    : Repl.Terminal.JobConfig App
-    where
+private def backgroundJobs : Repl.Terminal.JobConfig App where
   shouldRun := fun _ line => !line.startsWith "/"
   start := fun app raw =>
     let cell := app.nextCell
@@ -540,10 +549,7 @@ private inductive AppKeyAction
   | historyScrollUp
   | historyScrollDown
 
-private
-def appKeymap
-    : Repl.Terminal.AppKeymap App
-    where
+private def appKeymap : Repl.Terminal.AppKeymap App where
   Action := AppKeyAction
   keymap := { bindings :=
     [ { key := .char 'H', action := .focusCalculator,
@@ -607,7 +613,10 @@ def handleHistoryMouse
 
 /-! ## Run modes -/
 
-private def interactive (start : App) : IO Unit := do
+private
+def interactive
+    (start : App)
+    : IO Unit := do
   clearScreen
   Repl.Terminal.run
     { initial := start
@@ -627,12 +636,13 @@ private def interactive (start : App) : IO Unit := do
       isRunning := fun app => app.running
       quit := fun app => { app with running := false } }
 
-private
-def staticSamples
-    : List String :=
+private def staticSamples : List String :=
   ["2+3*4", "(1+2)^5", "2^-2", "sqrt(2)", "10/4 + 7%3", "ans * 2", "1/0", "2 * (3 + "]
 
-private def staticDemo (start : App) : IO Unit := do
+private
+def staticDemo
+    (start : App)
+    : IO Unit := do
   let theme := start.theme
   let width ← terminalWidth
   writeTextLine (banner theme width)
@@ -667,9 +677,7 @@ private def staticDemo (start : App) : IO Unit := do
   writeTextLine (entryView theme width (.note (.theme start.themeName)))
   writeTextLine (entryView theme width (.note .help))
 
-private
-def usage
-    : String :=
+private def usage : String :=
   s!"calc {version} — a chat-shaped calculator on the termcolor stack
 
 usage:
@@ -682,7 +690,9 @@ environment:
   {themeEnvVar}={themeNames}
   {nonInteractiveEnvVar}=1     force the static transcript"
 
-def main (args : List String) : IO Unit := do
+def main
+    (args : List String)
+    : IO Unit := do
   match args with
   | [] =>
       let start ← resolveTheme
