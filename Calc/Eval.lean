@@ -51,13 +51,19 @@ inductive Expr where
 
 /-! ## Lexemes -/
 
-private def digitsToFloat (digits : List Char) : Float :=
+private
+def digitsToFloat
+    (digits : List Char)
+    : Float :=
   digits.foldl (fun value character =>
     value * 10.0 + (character.toNat - '0'.toNat).toFloat) 0.0
 
 /-- Decode a `digits[.digits]` lexeme. Rejects `.`, `1.2.3`, and anything else the byte scan
 let through. -/
-private def floatOfLexeme (text : String) : Option Float :=
+private
+def floatOfLexeme
+    (text : String)
+    : Option Float :=
   match text.splitOn "." with
   | [whole] =>
       if whole.isEmpty then none else some (digitsToFloat whole.toList)
@@ -68,7 +74,11 @@ private def floatOfLexeme (text : String) : Option Float :=
           digitsToFloat fraction.toList / Float.pow 10.0 fraction.length.toFloat)
   | _ => none
 
-private def decodeNumber (arr : ByteArray) (start stop : Nat) : Option Expr :=
+private
+def decodeNumber
+    (arr : ByteArray)
+    (start stop : Nat)
+    : Option Expr :=
   match String.fromUTF8? (arr.extract start stop) with
   | some text => (floatOfLexeme text).map Expr.number
   | none => none
@@ -76,30 +86,43 @@ private def decodeNumber (arr : ByteArray) (start stop : Nat) : Option Expr :=
 private def isNumberByte (byte : UInt8) : Bool := Ascii.isDigit byte || byte == Ascii.dot
 
 /-- A number literal, decoded straight from its consumed byte range. -/
-private def number : GParser conditional Expr :=
+private
+def number
+    : GParser conditional Expr :=
   GParser.captureWith? decodeNumber (GParser.takeWhile1 isNumberByte) <?> "a number"
 
 /-- A constant or function name. -/
-private def identifier : GParser conditional String :=
+private
+def identifier
+    : GParser conditional String :=
   GParser.capture (GParser.takeWhile1 Ascii.isAlpha) <?> "a name"
 
 private def operatorChar (byte : UInt8) : Char := Char.ofNat byte.toNat
 
-private def addOperator : GParser conditional Char :=
+private
+def addOperator
+    : GParser conditional Char :=
   operatorChar <$> (GParser.ws *> GParser.oneOf [Ascii.plus, Ascii.dash]) <?> "'+' or '-'"
 
-private def mulOperator : GParser conditional Char :=
+private
+def mulOperator
+    : GParser conditional Char :=
   operatorChar <$>
     (GParser.ws *> GParser.oneOf [Ascii.code '*', Ascii.code '/', Ascii.code '%'])
     <?> "'*', '/' or '%'"
 
-private def foldBinary (first : Expr) (rest : List (Char × Expr)) : Expr :=
+private
+def foldBinary
+    (first : Expr)
+    (rest : List (Char × Expr))
+    : Expr :=
   rest.foldl (fun left (operator, right) => .binary operator left right) first
 
 /-! ## Grammar -/
 
 /-- Parse one expression. -/
-def expression : GParser conditional Expr :=
+def expression
+    : GParser conditional Expr :=
   GParser.fix fun expression =>
     let group : GParser conditional Expr :=
       GParser.ch '(' *> (GParser.ws *> expression) <* (GParser.ws *> GParser.ch ')')
@@ -137,17 +160,24 @@ def expression : GParser conditional Expr :=
 
 The label matters: `many` reports its failure at the offset where the repetition started, so a
 bare "end of input" would blame the last operator the chain accepted. -/
-def parser : GParser conditional Expr :=
+def parser
+    : GParser conditional Expr :=
   (GParser.ws *> expression) <*
     (GParser.ws *> (GParser.eof <?> "an operator or the end of the expression"))
 
 /-- Parse a line of input, keeping grip's positioned error. -/
-def parse (input : String) : Except ParseError Expr :=
+def parse
+    (input : String)
+    : Except ParseError Expr :=
   GParser.parse parser input.toUTF8
 
 /-! ## Evaluating -/
 
-private def applyFunction (function : String) (value : Float) : Except String Float :=
+private
+def applyFunction
+    (function : String)
+    (value : Float)
+    : Except String Float :=
   match function with
   | "sqrt" => if value < 0.0 then .error "sqrt needs a non-negative argument" else .ok value.sqrt
   | "abs" => .ok value.abs
@@ -161,7 +191,11 @@ private def applyFunction (function : String) (value : Float) : Except String Fl
   | "tan" => .ok value.tan
   | _ => .error s!"'{function}' is not a function I know"
 
-private def applyOperator (operator : Char) (left right : Float) : Except String Float :=
+private
+def applyOperator
+    (operator : Char)
+    (left right : Float)
+    : Except String Float :=
   match operator with
   | '+' => .ok (left + right)
   | '-' => .ok (left - right)
@@ -174,7 +208,10 @@ private def applyOperator (operator : Char) (left right : Float) : Except String
   | _ => .error s!"'{operator}' is not an operator I know"
 
 /-- Evaluate an expression tree. `ans` supplies the value of the `ans` constant. -/
-def eval (ans : Float) : Expr → Except String Float
+def eval
+    (ans : Float)
+    : Expr →
+      Except String Float
   | .number value => .ok value
   | .name "ans" => .ok ans
   | .name "pi" => .ok 3.141592653589793
@@ -191,7 +228,10 @@ inductive EvalError where
   | evaluation (message : String)
 
 /-- Parse and evaluate while preserving parser errors for rich source diagnostics. -/
-def evaluateDetailed (ans : Float) (input : String) : Except EvalError Float :=
+def evaluateDetailed
+    (ans : Float)
+    (input : String)
+    : Except EvalError Float :=
   match parse input with
   | .error error => .error (.parse error)
   | .ok expression =>
@@ -200,7 +240,10 @@ def evaluateDetailed (ans : Float) (input : String) : Except EvalError Float :=
       | .error message => .error (.evaluation message)
 
 /-- Parse and evaluate one line, using the legacy plain-string error shape. -/
-def evaluate (ans : Float) (input : String) : Except String Float :=
+def evaluate
+    (ans : Float)
+    (input : String)
+    : Except String Float :=
   match evaluateDetailed ans input with
   | .ok value => .ok value
   | .error (.parse error) => .error (error.pretty input.toUTF8)
@@ -208,7 +251,10 @@ def evaluate (ans : Float) (input : String) : Except String Float :=
 
 /-! ## Display -/
 
-private def trimTrailingZeros (text : String) : String :=
+private
+def trimTrailingZeros
+    (text : String)
+    : String :=
   if text.contains '.' then
     let stripped := text.toList.reverse.dropWhile (· == '0')
     let stripped := match stripped with
@@ -219,7 +265,9 @@ private def trimTrailingZeros (text : String) : String :=
     text
 
 /-- Format a result the way a calculator display would: no trailing zeros, named infinities. -/
-def formatValue (value : Float) : String :=
+def formatValue
+    (value : Float)
+    : String :=
   if value.isNaN then "nan"
   else if value.isInf then (if value < 0.0 then "-inf" else "inf")
   else trimTrailingZeros (toString value)
@@ -230,17 +278,25 @@ One runnable check over the parts with real branching: precedence, both associat
 minus, the function table, and each failure path.
 -/
 
-private def evaluatesTo (input expected : String) : Bool :=
+private
+def evaluatesTo
+    (input expected : String)
+    : Bool :=
   match evaluate 0.0 input with
   | .ok value => formatValue value == expected
   | .error _ => false
 
-private def fails (input : String) : Bool :=
+private
+def fails
+    (input : String)
+    : Bool :=
   match evaluate 0.0 input with
   | .ok _ => false
   | .error _ => true
 
-private def selfCheck : Bool :=
+private
+def selfCheck
+    : Bool :=
   evaluatesTo "2+3*4" "14" &&
   evaluatesTo "(2+3)*4" "20" &&
   evaluatesTo "2^3^2" "512" &&

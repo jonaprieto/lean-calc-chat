@@ -47,7 +47,9 @@ presets ship with `termcolor`; `aurora` and `terracotta` are this app's own.
 -/
 
 /-- Cool aurora colors, the default identity for Lean Calc. -/
-def aurora : ColorScheme where
+def aurora
+    : ColorScheme
+    where
   background := .rgb 13 24 37
   foreground := .rgb 225 241 245
   selection := .rgb 39 70 83
@@ -62,7 +64,9 @@ def aurora : ColorScheme where
   pink := .rgb 245 132 203
 
 /-- Warm terracotta on slate. -/
-def terracotta : ColorScheme where
+def terracotta
+    : ColorScheme
+    where
   background := .rgb 26 28 38
   foreground := .rgb 214 216 226
   selection := .rgb 74 78 96
@@ -77,7 +81,8 @@ def terracotta : ColorScheme where
   pink := .rgb 224 140 180
 
 /-- Every palette the UI can be drawn in, in the order `/theme` lists them. -/
-def themes : List (String × ColorScheme) :=
+def themes
+    : List (String × ColorScheme) :=
   [ ("aurora", aurora)
   , ("terracotta", terracotta)
   , ("catppuccin", ColorScheme.catppuccin)
@@ -105,10 +110,13 @@ inductive Command where
   | quit
 deriving Repr, BEq, DecidableEq
 
-private def themeParam : Param String :=
+private
+def themeParam
+    : Param String :=
   Param.named "THEME" (Param.enum (themes.map fun (name, _) => (name, name)))
 
-def commandSpec : CommandSpec Command :=
+def commandSpec
+    : CommandSpec Command :=
   Argus.group "calc"
     [ Argus.cmd "help" (Spec.map (fun _ => .help) (Spec.const ()))
         (description := "Show calculator and command help")
@@ -128,7 +136,8 @@ def commandSpec : CommandSpec Command :=
     , Argus.cmd "exit" (Spec.map (fun _ => .quit) (Spec.const ()))
         (description := "Leave the calculator") ]
 
-def commandHelpRows : List (String × String) :=
+def commandHelpRows
+    : List (String × String) :=
   (commandHelp commandSpec).map fun command => (command.usage, command.description)
 
 /-! ## Metrics
@@ -157,7 +166,10 @@ the frame by exactly that gutter. -/
 def panelWidth (width : Nat) : Nat := frameWidth width - askIndent
 
 /-! `Text` has no vertical alignment primitive; keep layout panes at their assigned height. -/
-def fillHeight (height : Nat) (text : Text) : Text :=
+def fillHeight
+    (height : Nat)
+    (text : Text)
+    : Text :=
   let height := max 1 height
   let lines := (splitLines text).take height
   joinLines (lines ++ List.replicate (height - lines.length) Text.empty)
@@ -177,7 +189,9 @@ def splitLeft (total : Nat) : Nat := total * leftColumnShare / 100
 def historyDrawerMinWidth : Nat := minFrameWidth * 2 + tableGap
 
 /-- Widths for the calculator and history drawer, when both panes fit. -/
-def historyDrawerWidths (width : Nat) : Option (Nat × Nat) :=
+def historyDrawerWidths
+    (width : Nat)
+    : Option (Nat × Nat) :=
   let total := frameWidth width
   if total < historyDrawerMinWidth then none
   else
@@ -200,12 +214,18 @@ def helpKeyWidth : Nat := 21
 /-- Bounds on the width of the progress and indeterminate bars. -/
 def minBarWidth : Nat := 10
 
-private def indentText (count : Nat) : Text :=
+private
+def indentText
+    (count : Nat)
+    : Text :=
   Text.plain (String.ofList (List.replicate count ' '))
 
 /-! ## Banner -/
 
-private def mascot (theme : ColorScheme) : Text :=
+private
+def mascot
+    (theme : ColorScheme)
+    : Text :=
   joinLines
     [ Text.styled "    *    " (Style.fg theme.yellow)
     , Text.styled "  / | \\  " (Style.fg theme.cyan)
@@ -213,7 +233,11 @@ private def mascot (theme : ColorScheme) : Text :=
     , Text.styled "  \\ | /  " (Style.fg theme.blue)
     , Text.styled "    *    " (Style.fg theme.purple) ]
 
-private def bannerLeft (theme : ColorScheme) (width : Nat) : Text :=
+private
+def bannerLeft
+    (theme : ColorScheme)
+    (width : Nat)
+    : Text :=
   align width .center (truncate width (
     Text.styled "Welcome back!" (Style.bold <+> Style.fg theme.foreground) ++
     Text.plain "\n\n" ++ mascot theme ++ Text.plain "\n\n" ++
@@ -221,7 +245,11 @@ private def bannerLeft (theme : ColorScheme) (width : Nat) : Text :=
     Text.hyperlink "https://github.com/jonaprieto/lean-termcolor"
       (Text.styled "github.com/jonaprieto/lean-termcolor" (Style.fg theme.comment))))
 
-private def bannerRight (theme : ColorScheme) (width : Nat) : Text :=
+private
+def bannerRight
+    (theme : ColorScheme)
+    (width : Nat)
+    : Text :=
   let heading := fun (label : String) =>
     Text.styled label (Style.bold <+> Style.fg theme.orange) ++ Text.plain "\n"
   let line := fun (label : String) =>
@@ -238,7 +266,10 @@ private def bannerRight (theme : ColorScheme) (width : Nat) : Text :=
       (Style.italic <+> Style.fg theme.comment)))
 
 /-- The welcome banner: two panes and a rule, inside a titled box. -/
-def banner (theme : ColorScheme) (width : Nat) : Text :=
+def banner
+    (theme : ColorScheme)
+    (width : Nat)
+    : Text :=
   let outer := frameWidth width
   -- One space of gap around the styled separator.
   let inner := boxInnerWidth outer
@@ -257,7 +288,10 @@ def banner (theme : ColorScheme) (width : Nat) : Text :=
 
 /-- The banner reduced to one line, shown once the conversation has started so the transcript gets
 the rows back. `/clear` empties the transcript and brings the full banner back. -/
-def compactHeader (theme : ColorScheme) (width : Nat) : Text :=
+def compactHeader
+    (theme : ColorScheme)
+    (width : Nat)
+    : Text :=
   let outer := frameWidth width
   let title := s!" Lean Calc v{version} "
   let rule := fun (count : Nat) =>
@@ -288,21 +322,29 @@ inductive Entry where
   | note (body : Note)
 
 /-- Shown while the transcript is empty. -/
-def emptyTranscript (theme : ColorScheme) : Text :=
+def emptyTranscript
+    (theme : ColorScheme)
+    : Text :=
   indentText askIndent ++
     Text.styled "Type an expression and press enter, or /help."
       (Style.dim <+> Style.fg theme.comment)
 
 /-! ## Prompt and footer -/
 
-private def roundedChars : BoxChars :=
+private
+def roundedChars
+    : BoxChars :=
   { topLeft := '╭', topRight := '╮', bottomLeft := '╰', bottomRight := '╯' }
 
 /-- Columns the `› ` prompt marker takes inside the input bar. -/
 private def promptMarkerWidth : Nat := 2
 
 /-- The rounded prompt bar at the bottom of the screen. -/
-def promptView (theme : ColorScheme) (width : Nat) (state : TextInputState) : Text :=
+def promptView
+    (theme : ColorScheme)
+    (width : Nat)
+    (state : TextInputState)
+    : Text :=
   let outer := frameWidth width
   box (Text.styled "› " (Style.fg theme.orange) ++
       TermColor.Repl.renderMultilineTextInputBody
@@ -315,7 +357,9 @@ def promptView (theme : ColorScheme) (width : Nat) (state : TextInputState) : Te
       , maxWidth := some outer }
 
 /-- Format a measured operation duration for an answer line. -/
-def formatElapsed (nanoseconds : Nat) : String :=
+def formatElapsed
+    (nanoseconds : Nat)
+    : String :=
   if nanoseconds < 1_000_000 then
     s!"{max 1 (nanoseconds / 1_000)} μs"
   else if nanoseconds < 1_000_000_000 then
@@ -326,8 +370,13 @@ def formatElapsed (nanoseconds : Nat) : String :=
 example : formatElapsed 1_500_000 = "1.5 ms" := by native_decide
 
 /-- The status line under the prompt. -/
-def footerView (theme : ColorScheme) (width : Nat) (themeName : String) (ans : Float)
-    (busy : Bool) : Text :=
+def footerView
+    (theme : ColorScheme)
+    (width : Nat)
+    (themeName : String)
+    (ans : Float)
+    (busy : Bool)
+    : Text :=
   let outer := frameWidth width
   let leftWidth := outer * 2 / 3
   let status := if busy then "[CALC:BUSY]" else "[CALC:READY]"
@@ -345,36 +394,50 @@ renderings cannot drift apart.
 -/
 
 /-- Bar width for the progress widgets at a given frame width. -/
-def barWidth (width : Nat) : Nat :=
+def barWidth
+    (width : Nat)
+    : Nat :=
   max minBarWidth (boxInnerWidth (panelWidth width) - 16)
 
 /-- Progress-bar styling. -/
-def progressConfig (theme : ColorScheme) (width : Nat) : ProgressConfig :=
+def progressConfig
+    (theme : ColorScheme)
+    (width : Nat)
+    : ProgressConfig :=
   { width := barWidth width
     , filledStyle := Style.fg theme.blue
     , emptyStyle := Style.dim <+> Style.fg theme.selection
     , percentageStyle := Style.fg theme.foreground }
 
 /-- Indeterminate-bar styling: the same bar with a bouncing segment. -/
-def indeterminateConfig (theme : ColorScheme) (width : Nat) : ProgressConfig :=
+def indeterminateConfig
+    (theme : ColorScheme)
+    (width : Nat)
+    : ProgressConfig :=
   { progressConfig theme width with
     filledStyle := Style.fg theme.cyan
     , indeterminateWidth := 8
     , showPercentage := false }
 
 /-- Spinner styling. `SpinnerConfig` has no style field, so the frames carry it. -/
-def spinnerConfig (theme : ColorScheme) : SpinnerConfig :=
+def spinnerConfig
+    (theme : ColorScheme)
+    : SpinnerConfig :=
   { frames := defaultSpinnerFrames.map fun frame =>
       Text.styled frame.plainText (Style.fg theme.orange) }
 
 /-- Column widths for the showcase table. -/
-def showcaseTableWidths (width : Nat) : List Nat :=
+def showcaseTableWidths
+    (width : Nat)
+    : List Nat :=
   let inner := boxInnerWidth (panelWidth width) - tableGap
   let left := max minColumnWidth (splitLeft inner)
   [left, max minColumnWidth (inner - left)]
 
 /-- The bounded workload used by the live showcase. -/
-def showcaseComputation (frame : Nat) : Nat × Nat :=
+def showcaseComputation
+    (frame : Nat)
+    : Nat × Nat :=
   let limit := frame * 2_000
   -- ponytail: O(n) demo workload; replace with a domain computation if the
   -- showcase needs more load.
@@ -383,17 +446,25 @@ def showcaseComputation (frame : Nat) : Nat × Nat :=
 example : showcaseComputation 1 = (2_000, 2_664_667_000) := by native_decide
 
 /-- A spinner frame plus the current result of the showcase computation. -/
-def thinkingView (theme : ColorScheme) (frame : Nat) : Text :=
+def thinkingView
+    (theme : ColorScheme)
+    (frame : Nat)
+    : Text :=
   indentText askIndent ++ spinnerFrame (spinnerConfig theme) frame ++ Text.plain " " ++
     Text.styled "Computing…" (Style.fg theme.comment)
 
 /-- Show the current result of the showcase computation. -/
-def computationView (theme : ColorScheme) (frame : Nat) : Text :=
+def computationView
+    (theme : ColorScheme)
+    (frame : Nat)
+    : Text :=
   let (limit, total) := showcaseComputation frame
   Text.styled s!"sum squares < {limit} = {total}" (Style.fg theme.cyan)
 
 /-- Configuration shared by the collapsed and expanded showcase states. -/
-def collapsibleConfig (theme : ColorScheme) : CollapsibleConfig :=
+def collapsibleConfig
+    (theme : ColorScheme)
+    : CollapsibleConfig :=
   { collapsedMarker := Text.styled "▸ " (Style.fg theme.cyan)
     , expandedMarker := Text.styled "▾ " (Style.fg theme.cyan)
     , summaryStyle := Style.fg theme.foreground
@@ -403,36 +474,59 @@ def collapsibleConfig (theme : ColorScheme) : CollapsibleConfig :=
     , overflowText := Text.styled "… more" (Style.fg theme.yellow) }
 
 /-- Render one state of a collapsible build log. -/
-def collapsibleView (theme : ColorScheme) (width : Nat) (expanded : Bool) : Text :=
+def collapsibleView
+    (theme : ColorScheme)
+    (width : Nat)
+    (expanded : Bool)
+    : Text :=
   (renderCollapsible (collapsibleConfig theme) (boxInnerWidth (panelWidth width))
     (Text.plain "build · 4 logs")
     (Text.plain "fetch\nparse\ncompile\npackage")
     { expanded }).text
 
 /-- Render elapsed time without tying the pure view to a clock. -/
-def timerView (theme : ColorScheme) (milliseconds : Nat) : Text :=
+def timerView
+    (theme : ColorScheme)
+    (milliseconds : Nat)
+    : Text :=
   Text.styled s!"timer {milliseconds / 1000}.{milliseconds % 1000 / 100}s"
     (Style.fg theme.yellow)
 
 /-! ## Slash-command panels -/
 
-private def panel (theme : ColorScheme) (width : Nat) (title : String) (body : Text) : Text :=
+private
+def panel
+    (theme : ColorScheme)
+    (width : Nat)
+    (title : String)
+    (body : Text)
+    : Text :=
   box body
     { title := some (Text.styled title (Style.bold <+> Style.fg theme.cyan))
       , borderStyle := Style.fg theme.selection
       , maxWidth := some (panelWidth width) }
 
-private def headerRow (theme : ColorScheme) (left right : String) : List Text :=
+private
+def headerRow
+    (theme : ColorScheme)
+    (left right : String)
+    : List Text :=
   [ Text.styled left (Style.bold <+> Style.fg theme.purple)
   , Text.styled right (Style.bold <+> Style.fg theme.purple) ]
 
 /-- Two-column table widths for a panel, given the width of its left column. -/
-private def panelTableWidths (width leftWidth : Nat) : List Nat :=
+private
+def panelTableWidths
+    (width leftWidth : Nat)
+    : List Nat :=
   let inner := boxInnerWidth (panelWidth width) - tableGap
   [leftWidth, max minColumnWidth (inner - leftWidth)]
 
 /-- The `/help` panel. -/
-def helpView (theme : ColorScheme) (width : Nat) : Text :=
+def helpView
+    (theme : ColorScheme)
+    (width : Nat)
+    : Text :=
   let command := fun (text : String) => Text.styled text (Style.fg theme.cyan)
   let commandRows := commandHelpRows.map fun (usage, description) =>
     [command usage, Text.plain description]
@@ -452,8 +546,12 @@ def helpView (theme : ColorScheme) (width : Nat) : Text :=
     , [command "CALC_THEME", Text.plain themeNames] ]) tableGap)
 
 /-- The `/history` panel. Rows are newest last. -/
-private def historyBody (theme : ColorScheme) (width : Nat)
-    (rows : List (Nat × (String × String))) : Text :=
+private
+def historyBody
+    (theme : ColorScheme)
+    (width : Nat)
+    (rows : List (Nat × (String × String)))
+    : Text :=
   if rows.isEmpty then
     Text.styled "Nothing evaluated yet."
       (Style.dim <+> Style.fg theme.comment)
@@ -475,18 +573,25 @@ private def historyBody (theme : ColorScheme) (width : Nat)
           , Text.styled value (Style.fg theme.green) ])) tableGap
       [.right, .left, .right]
 
-private def historyRowsWindow (height offset : Nat)
-    (rows : List (Nat × (String × String))) : List (Nat × (String × String)) :=
+private
+def historyRowsWindow
+    (height offset : Nat)
+    (rows : List (Nat × (String × String)))
+    : List (Nat × (String × String)) :=
   -- App history is newest-first; reverse only the visible slice for chronological display.
   let count := if height > 3 then height - 3 else 1
   let start := min rows.length offset
   ((rows.drop start).take count).reverse
 
-example : (historyRowsWindow 4 0
-    [(1, ("1", "1")), (2, ("2", "2")), (3, ("3", "3"))]).length = 1 := by
+example
+    : (historyRowsWindow 4 0 [(1, ("1", "1")), (2, ("2", "2")), (3, ("3", "3"))]).length = 1 := by
   native_decide
 
-private def historyWindow (height offset : Nat) (body : Text) : Text :=
+private
+def historyWindow
+    (height offset : Nat)
+    (body : Text)
+    : Text :=
   let viewport := if height > 2 then height - 2 else 1
   let lines := splitLines body
   let maxOffset := lines.length - min lines.length viewport
@@ -496,13 +601,21 @@ private def historyWindow (height offset : Nat) (body : Text) : Text :=
 example : (historyWindow 4 0 (Text.plain "a\nb\nc")).height = 2 := by native_decide
 
 /-- The `/history` panel. Rows are newest last. -/
-def historyView (theme : ColorScheme) (width : Nat)
-    (rows : List (Nat × (String × String))) : Text :=
+def historyView
+    (theme : ColorScheme)
+    (width : Nat)
+    (rows : List (Nat × (String × String)))
+    : Text :=
   panel theme width "history" (historyBody theme width rows)
 
 /-- The persistent history drawer. `width` is its exact outer column width. -/
-def historyDrawerView (theme : ColorScheme) (width : Nat)
-    (rows : List (Nat × (String × String))) (focused : Bool) (height offset : Nat) : Text :=
+def historyDrawerView
+    (theme : ColorScheme)
+    (width : Nat)
+    (rows : List (Nat × (String × String)))
+    (focused : Bool)
+    (height offset : Nat)
+    : Text :=
   let viewWidth := width + askIndent
   let title := if focused then "history • active" else "history"
   let rows := historyRowsWindow height offset rows
@@ -511,7 +624,11 @@ def historyDrawerView (theme : ColorScheme) (width : Nat)
   panel theme viewWidth title (padRight innerWidth body)
 
 /-- The `/theme` panel: every palette, drawn in its own colours. -/
-def themeView (theme : ColorScheme) (width : Nat) (current : String) : Text :=
+def themeView
+    (theme : ColorScheme)
+    (width : Nat)
+    (current : String)
+    : Text :=
   let nameWidth := themes.foldl (fun widest (name, _) => max widest name.length) 0 + 1
   panel theme width "themes" (joinLines (themes.map (fun (name, scheme) =>
     let marker := if name == current then "● " else "○ "
@@ -525,7 +642,11 @@ def themeView (theme : ColorScheme) (width : Nat) (current : String) : Text :=
 
 /-- Every widget the stack ships, rendered as one still frame. The live showcase in `Main` drives
 the same pure renderers through `LiveRegion`. -/
-def widgetGallery (theme : ColorScheme) (width : Nat) (frame : Nat) : Text :=
+def widgetGallery
+    (theme : ColorScheme)
+    (width : Nat)
+    (frame : Nat)
+    : Text :=
   panel theme width "widgets" (joinLines
     [ progressBar (progressConfig theme width)
         { current := 7, total := 10, label := Text.styled "progress" (Style.fg theme.foreground) }
@@ -542,30 +663,57 @@ def widgetGallery (theme : ColorScheme) (width : Nat) (frame : Nat) : Text :=
         [ headerRow theme "table" "value"
         , [Text.plain "rows wrap", Text.styled "yes" (Style.fg theme.green)] ] tableGap ])
 
-private def cellMarker
-    (theme : ColorScheme) (cell : Nat) (symbol : String) (style : Style) : Text :=
+private
+def cellMarker
+    (theme : ColorScheme)
+    (cell : Nat)
+    (symbol : String)
+    (style : Style)
+    : Text :=
   Text.styled s!"[{cell}] " (Style.dim <+> Style.fg theme.comment) ++
     Text.styled s!"{symbol} " style
 
-private def resultMarker (symbol : String) (style : Style) : Text :=
+private
+def resultMarker
+    (symbol : String)
+    (style : Style)
+    : Text :=
   Text.styled s!"  {symbol} " style
 
-private def markerWidth (cell : Nat) (symbol : String) : Nat :=
+private
+def markerWidth
+    (cell : Nat)
+    (symbol : String)
+    : Nat :=
   s!"[{cell}] {symbol} ".length
 
-private def noteView (theme : ColorScheme) (width : Nat) : Note → Text
+private
+def noteView
+    (theme : ColorScheme)
+    (width : Nat)
+    : Note →
+      Text
   | .help => helpView theme width
   | .history rows => historyView theme width rows
   | .theme current => themeView theme width current
   | .widgets frame => widgetGallery theme width frame
 
-private def diagnosticView (theme : ColorScheme) (width : Nat) (sources : Sources)
-    (diagnostic : Diagnostic) : Text :=
+private
+def diagnosticView
+    (theme : ColorScheme)
+    (width : Nat)
+    (sources : Sources)
+    (diagnostic : Diagnostic)
+    : Text :=
   TermColor.Diagnostics.render sources diagnostic
     { width := max 1 (frameWidth width - askIndent), contextLines := 0, hyperlinks := false } theme
 
 /-- Render one transcript entry with its numbered cell gutter. -/
-def entryView (theme : ColorScheme) (width : Nat) (entry : Entry) : Text :=
+def entryView
+    (theme : ColorScheme)
+    (width : Nat)
+    (entry : Entry)
+    : Text :=
   let inner := frameWidth width
   match entry with
   | .ask cell input =>
