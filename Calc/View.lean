@@ -160,7 +160,8 @@ def panelWidth (width : Nat) : Nat := frameWidth width - askIndent
 def fillHeight
     (height : Nat)
     (text : Text)
-    : Text :=
+    : Text
+    :=
   let height := max 1 height
   let lines := (splitLines text).take height
   joinLines (lines ++ List.replicate (height - lines.length) Text.empty)
@@ -182,7 +183,8 @@ def historyDrawerMinWidth : Nat := minFrameWidth * 2 + tableGap
 /-- Widths for the calculator and history drawer, when both panes fit. -/
 def historyDrawerWidths
     (width : Nat)
-    : Option (Nat × Nat) :=
+    : Option (Nat × Nat)
+    :=
   let total := frameWidth width
   if total < historyDrawerMinWidth then none
   else
@@ -208,7 +210,8 @@ def minBarWidth : Nat := 10
 private
 def indentText
     (count : Nat)
-    : Text :=
+    : Text
+    :=
   Text.plain (String.ofList (List.replicate count ' '))
 
 /-! ## Banner -/
@@ -216,7 +219,8 @@ def indentText
 private
 def mascot
     (theme : ColorScheme)
-    : Text :=
+    : Text
+    :=
   joinLines
     [ Text.styled "    *    " (Style.fg theme.yellow)
     , Text.styled "  / | \\  " (Style.fg theme.cyan)
@@ -228,7 +232,8 @@ private
 def bannerLeft
     (theme : ColorScheme)
     (width : Nat)
-    : Text :=
+    : Text
+    :=
   align width .center (truncate width (
     Text.styled "Welcome back!" (Style.bold <+> Style.fg theme.foreground) ++
     Text.plain "\n\n" ++ mascot theme ++ Text.plain "\n\n" ++
@@ -240,7 +245,8 @@ private
 def bannerRight
     (theme : ColorScheme)
     (width : Nat)
-    : Text :=
+    : Text
+    :=
   let heading := fun (label : String) =>
     Text.styled label (Style.bold <+> Style.fg theme.orange) ++ Text.plain "\n"
   let line := fun (label : String) =>
@@ -260,7 +266,8 @@ def bannerRight
 def banner
     (theme : ColorScheme)
     (width : Nat)
-    : Text :=
+    : Text
+    :=
   let outer := frameWidth width
   -- One space of gap around the styled separator.
   let inner := boxInnerWidth outer
@@ -282,7 +289,8 @@ the rows back. `/clear` empties the transcript and brings the full banner back. 
 def compactHeader
     (theme : ColorScheme)
     (width : Nat)
-    : Text :=
+    : Text
+    :=
   let outer := frameWidth width
   let title := s!" Lean Calc v{version} "
   let rule := fun (count : Nat) =>
@@ -315,7 +323,8 @@ inductive Entry where
 /-- Shown while the transcript is empty. -/
 def emptyTranscript
     (theme : ColorScheme)
-    : Text :=
+    : Text
+    :=
   indentText askIndent ++
     Text.styled "Type an expression and press enter, or /help."
       (Style.dim <+> Style.fg theme.comment)
@@ -333,7 +342,8 @@ def promptView
     (theme : ColorScheme)
     (width : Nat)
     (state : TextInputState)
-    : Text :=
+    : Text
+    :=
   let outer := frameWidth width
   box (Text.styled "› " (Style.fg theme.orange) ++
       TermColor.Repl.renderMultilineTextInputBody
@@ -348,7 +358,8 @@ def promptView
 /-- Format a measured operation duration for an answer line. -/
 def formatElapsed
     (nanoseconds : Nat)
-    : String :=
+    : String
+    :=
   if nanoseconds < 1_000_000 then
     s!"{max 1 (nanoseconds / 1_000)} μs"
   else if nanoseconds < 1_000_000_000 then
@@ -365,7 +376,8 @@ def footerView
     (themeName : String)
     (ans : Float)
     (busy : Bool)
-    : Text :=
+    : Text
+    :=
   let outer := frameWidth width
   let leftWidth := outer * 2 / 3
   let status := if busy then "[CALC:BUSY]" else "[CALC:READY]"
@@ -385,14 +397,16 @@ renderings cannot drift apart.
 /-- Bar width for the progress widgets at a given frame width. -/
 def barWidth
     (width : Nat)
-    : Nat :=
+    : Nat
+    :=
   max minBarWidth (boxInnerWidth (panelWidth width) - 16)
 
 /-- Progress-bar styling. -/
 def progressConfig
     (theme : ColorScheme)
     (width : Nat)
-    : ProgressConfig :=
+    : ProgressConfig
+    :=
   { width := barWidth width
     , filledStyle := Style.fg theme.blue
     , emptyStyle := Style.dim <+> Style.fg theme.selection
@@ -402,7 +416,8 @@ def progressConfig
 def indeterminateConfig
     (theme : ColorScheme)
     (width : Nat)
-    : ProgressConfig :=
+    : ProgressConfig
+    :=
   { progressConfig theme width with
     filledStyle := Style.fg theme.cyan
     , indeterminateWidth := 8
@@ -411,14 +426,16 @@ def indeterminateConfig
 /-- Spinner styling. `SpinnerConfig` has no style field, so the frames carry it. -/
 def spinnerConfig
     (theme : ColorScheme)
-    : SpinnerConfig :=
+    : SpinnerConfig
+    :=
   { frames := defaultSpinnerFrames.map fun frame =>
       Text.styled frame.plainText (Style.fg theme.orange) }
 
 /-- Column widths for the showcase table. -/
 def showcaseTableWidths
     (width : Nat)
-    : List Nat :=
+    : List Nat
+    :=
   let inner := boxInnerWidth (panelWidth width) - tableGap
   let left := max minColumnWidth (splitLeft inner)
   [left, max minColumnWidth (inner - left)]
@@ -426,7 +443,8 @@ def showcaseTableWidths
 /-- The bounded workload used by the live showcase. -/
 def showcaseComputation
     (frame : Nat)
-    : Nat × Nat :=
+    : Nat × Nat
+    :=
   let limit := frame * 2_000
   -- ponytail: O(n) demo workload; replace with a domain computation if the
   -- showcase needs more load.
@@ -438,7 +456,8 @@ example : showcaseComputation 1 = (2_000, 2_664_667_000) := by native_decide
 def thinkingView
     (theme : ColorScheme)
     (frame : Nat)
-    : Text :=
+    : Text
+    :=
   indentText askIndent ++ spinnerFrame (spinnerConfig theme) frame ++ Text.plain " " ++
     Text.styled "Computing…" (Style.fg theme.comment)
 
@@ -446,14 +465,16 @@ def thinkingView
 def computationView
     (theme : ColorScheme)
     (frame : Nat)
-    : Text :=
+    : Text
+    :=
   let (limit, total) := showcaseComputation frame
   Text.styled s!"sum squares < {limit} = {total}" (Style.fg theme.cyan)
 
 /-- Configuration shared by the collapsed and expanded showcase states. -/
 def collapsibleConfig
     (theme : ColorScheme)
-    : CollapsibleConfig :=
+    : CollapsibleConfig
+    :=
   { collapsedMarker := Text.styled "▸ " (Style.fg theme.cyan)
     , expandedMarker := Text.styled "▾ " (Style.fg theme.cyan)
     , summaryStyle := Style.fg theme.foreground
@@ -467,7 +488,8 @@ def collapsibleView
     (theme : ColorScheme)
     (width : Nat)
     (expanded : Bool)
-    : Text :=
+    : Text
+    :=
   (renderCollapsible (collapsibleConfig theme) (boxInnerWidth (panelWidth width))
     (Text.plain "build · 4 logs")
     (Text.plain "fetch\nparse\ncompile\npackage")
@@ -477,7 +499,8 @@ def collapsibleView
 def timerView
     (theme : ColorScheme)
     (milliseconds : Nat)
-    : Text :=
+    : Text
+    :=
   Text.styled s!"timer {milliseconds / 1000}.{milliseconds % 1000 / 100}s"
     (Style.fg theme.yellow)
 
@@ -489,7 +512,8 @@ def panel
     (width : Nat)
     (title : String)
     (body : Text)
-    : Text :=
+    : Text
+    :=
   box body
     { title := some (Text.styled title (Style.bold <+> Style.fg theme.cyan))
       , borderStyle := Style.fg theme.selection
@@ -499,7 +523,8 @@ private
 def headerRow
     (theme : ColorScheme)
     (left right : String)
-    : List Text :=
+    : List Text
+    :=
   [ Text.styled left (Style.bold <+> Style.fg theme.purple)
   , Text.styled right (Style.bold <+> Style.fg theme.purple) ]
 
@@ -507,7 +532,8 @@ def headerRow
 private
 def panelTableWidths
     (width leftWidth : Nat)
-    : List Nat :=
+    : List Nat
+    :=
   let inner := boxInnerWidth (panelWidth width) - tableGap
   [leftWidth, max minColumnWidth (inner - leftWidth)]
 
@@ -515,7 +541,8 @@ def panelTableWidths
 def helpView
     (theme : ColorScheme)
     (width : Nat)
-    : Text :=
+    : Text
+    :=
   let command := fun (text : String) => Text.styled text (Style.fg theme.cyan)
   let commandRows := commandHelpRows.map fun (usage, description) =>
     [command usage, Text.plain description]
@@ -540,7 +567,8 @@ def historyBody
     (theme : ColorScheme)
     (width : Nat)
     (rows : List (Nat × (String × String)))
-    : Text :=
+    : Text
+    :=
   if rows.isEmpty then
     Text.styled "Nothing evaluated yet."
       (Style.dim <+> Style.fg theme.comment)
@@ -566,7 +594,8 @@ private
 def historyRowsWindow
     (height offset : Nat)
     (rows : List (Nat × (String × String)))
-    : List (Nat × (String × String)) :=
+    : List (Nat × (String × String))
+    :=
   -- App history is newest-first; reverse only the visible slice for chronological display.
   let count := if height > 3 then height - 3 else 1
   let start := min rows.length offset
@@ -580,7 +609,8 @@ private
 def historyWindow
     (height offset : Nat)
     (body : Text)
-    : Text :=
+    : Text
+    :=
   let viewport := if height > 2 then height - 2 else 1
   let lines := splitLines body
   let maxOffset := lines.length - min lines.length viewport
@@ -594,7 +624,8 @@ def historyView
     (theme : ColorScheme)
     (width : Nat)
     (rows : List (Nat × (String × String)))
-    : Text :=
+    : Text
+    :=
   panel theme width "history" (historyBody theme width rows)
 
 /-- The persistent history drawer. `width` is its exact outer column width. -/
@@ -604,7 +635,8 @@ def historyDrawerView
     (rows : List (Nat × (String × String)))
     (focused : Bool)
     (height offset : Nat)
-    : Text :=
+    : Text
+    :=
   let viewWidth := width + askIndent
   let title := if focused then "history • active" else "history"
   let rows := historyRowsWindow height offset rows
@@ -617,7 +649,8 @@ def themeView
     (theme : ColorScheme)
     (width : Nat)
     (current : String)
-    : Text :=
+    : Text
+    :=
   let nameWidth := themes.foldl (fun widest (name, _) => max widest name.length) 0 + 1
   panel theme width "themes" (joinLines (themes.map (fun (name, scheme) =>
     let marker := if name == current then "● " else "○ "
@@ -635,7 +668,8 @@ def widgetGallery
     (theme : ColorScheme)
     (width : Nat)
     (frame : Nat)
-    : Text :=
+    : Text
+    :=
   panel theme width "widgets" (joinLines
     [ progressBar (progressConfig theme width)
         { current := 7, total := 10, label := Text.styled "progress" (Style.fg theme.foreground) }
@@ -658,7 +692,8 @@ def cellMarker
     (cell : Nat)
     (symbol : String)
     (style : Style)
-    : Text :=
+    : Text
+    :=
   Text.styled s!"[{cell}] " (Style.dim <+> Style.fg theme.comment) ++
     Text.styled s!"{symbol} " style
 
@@ -666,14 +701,16 @@ private
 def resultMarker
     (symbol : String)
     (style : Style)
-    : Text :=
+    : Text
+    :=
   Text.styled s!"  {symbol} " style
 
 private
 def markerWidth
     (cell : Nat)
     (symbol : String)
-    : Nat :=
+    : Nat
+    :=
   s!"[{cell}] {symbol} ".length
 
 private
@@ -693,7 +730,8 @@ def diagnosticView
     (width : Nat)
     (sources : Sources)
     (diagnostic : Diagnostic)
-    : Text :=
+    : Text
+    :=
   TermColor.Diagnostics.render sources diagnostic
     { width := max 1 (frameWidth width - askIndent), contextLines := 0, hyperlinks := false } theme
 
@@ -702,7 +740,8 @@ def entryView
     (theme : ColorScheme)
     (width : Nat)
     (entry : Entry)
-    : Text :=
+    : Text
+    :=
   let inner := frameWidth width
   match entry with
   | .ask cell input =>

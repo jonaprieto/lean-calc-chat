@@ -101,7 +101,8 @@ private
 def messageFailure
     (cell : Option Nat)
     (message : String)
-    : Entry :=
+    : Entry
+    :=
   .failure cell #[] (Diagnostic.error message)
 
 private def resolveTheme : IO App := do
@@ -126,7 +127,8 @@ def fitEntries
     (theme : ColorScheme)
     (width budget : Nat)
     (entries : List Entry)
-    : List Text :=
+    : List Text
+    :=
   let rec keep (remaining : Nat) (kept : List Text) : List Entry → List Text
     | [] => kept
     | entry :: older =>
@@ -145,7 +147,8 @@ private
 def withBackground
     (theme : ColorScheme)
     (text : Text)
-    : Text :=
+    : Text
+    :=
   { segments := text.segments.map fun segment =>
       { segment with style := Style.bg theme.background <+> segment.style } }
 
@@ -154,7 +157,8 @@ def opaqueScreen
     (theme : ColorScheme)
     (size : Size)
     (content : Text)
-    : Text :=
+    : Text
+    :=
   let width := max 1 size.columns
   let rows := max 1 size.rows
   let blank := Text.styled (String.ofList (List.replicate width ' '))
@@ -168,7 +172,8 @@ def calcContent
     (app : App)
     (size : Size)
     (showPrompt : Bool)
-    : Text :=
+    : Text
+    :=
   let width := size.columns
   let head :=
     if app.entries.isEmpty then banner app.theme width else compactHeader app.theme width
@@ -200,7 +205,8 @@ def screenView
     (app : App)
     (size : Size)
     (showPrompt : Bool)
-    : Text :=
+    : Text
+    :=
   match app.historyOpen, historyDrawerWidths size.columns with
   | true, some (leftWidth, rightWidth) =>
       let left := calcContent app { size with columns := leftWidth } showPrompt
@@ -230,7 +236,8 @@ def thinking
 private
 def showcaseHeader
     (theme : ColorScheme)
-    : List Text :=
+    : List Text
+    :=
   [ Text.styled "stage" (Style.bold <+> Style.fg theme.purple)
   , Text.styled "state" (Style.bold <+> Style.fg theme.purple) ]
 
@@ -305,7 +312,8 @@ def showcase
 private
 def completionIO
     (input : TextInputState)
-    : IO (List Repl.Completion) :=
+    : IO (List Repl.Completion)
+    :=
   completeCommandWith commandSpec (fun typeName =>
     if typeName == "THEME" then pure (themes.map Prod.fst) else pure []) input
 
@@ -333,7 +341,8 @@ private
 def cellReference
     (entries : List Entry)
     (cell : Nat)
-    : Option String :=
+    : Option String
+    :=
   (cellOutput entries cell).orElse (fun _ => cellInput entries cell)
 
 private
@@ -341,7 +350,8 @@ def parseFailure
     (cell : Nat)
     (input : String)
     (error : ParseError)
-    : Entry :=
+    : Entry
+    :=
   let source := Source.fromBytes "input" input.toUTF8
   .failure (some cell) #[source] (GripDiagnostics.diagnostic source error)
 
@@ -349,7 +359,8 @@ private
 def replaceReferences
     (entries : List Entry)
     (input : String)
-    : Except String String :=
+    : Except String String
+    :=
   let step (state : Except String (Bool × (List Char × List Char))) (character : Char) :=
     match state with
     | .error message => .error message
@@ -380,13 +391,15 @@ private
 def push
     (app : App)
     (entry : Entry)
-    : App :=
+    : App
+    :=
   { app with entries := entry :: app.entries }
 
 private
 def finishJob
     (app : App)
-    : App :=
+    : App
+    :=
   let remaining := app.activeJobs.pred
   { app with activeJobs := remaining, busy := remaining > 0 }
 
@@ -394,7 +407,8 @@ private
 def applyJobResult
     (app : App)
     (result : JobResult)
-    : App :=
+    : App
+    :=
   let app := push app result.entry
   match result.answer with
   | none => app
@@ -404,7 +418,8 @@ def applyJobResult
 private
 def mergeJobResult
     (current completed : App)
-    : App :=
+    : App
+    :=
   let current := match completed.jobResult with
     | some result => applyJobResult current result
     | none => current
@@ -415,7 +430,8 @@ def runCommand
     (app : App)
     (cell : Nat)
     (command : Calc.Command)
-    : App :=
+    : App
+    :=
   match command with
   | .help => push app (.note .help)
   | .history =>
@@ -442,7 +458,8 @@ def submitCommand
     (raw : String)
     (width : Nat)
     (command : Calc.Command)
-    : IO App :=
+    : IO App
+    :=
   match command with
   | .showcase => do
       let _ ← Repl.Terminal.suspend (showcase app.theme width)
@@ -473,7 +490,8 @@ def dispatchCommand
     (cell : Nat)
     (raw : String)
     (width : Nat)
-    : IO App :=
+    : IO App
+    :=
   match parseCommand commandSpec raw with
   | .error message => pure (push app (messageFailure (some cell) message))
   | .ok command => submitCommand app cell raw width command
@@ -581,7 +599,8 @@ def handleHistoryMouse
     (app : App)
     (size : Size)
     (mouse : MouseEvent)
-    : Option App :=
+    : Option App
+    :=
   if !app.historyOpen then none
   else
     match historyDrawerWidths size.columns with
