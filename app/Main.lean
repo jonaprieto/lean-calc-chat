@@ -64,7 +64,9 @@ private def chromeRows : Nat := 2
 /-- Longest expression the prompt accepts. -/
 private def inputConfig : TextInputConfig := { width := 120, maxLength := 120 }
 
-private def multilineInputConfig : Repl.MultilineConfig :=
+private
+def multilineInputConfig
+    : Repl.MultilineConfig :=
   { text := inputConfig, lineBreak := .ctrl 'n' }
 
 /-! ## State -/
@@ -94,7 +96,11 @@ private def currentSize : IO Size := Repl.Terminal.currentSize fallbackSize
 private def elapsedSince (started : Nat) : IO Nat := do
   pure ((← IO.monoNanosNow) - started)
 
-private def messageFailure (cell : Option Nat) (message : String) : Entry :=
+private
+def messageFailure
+    (cell : Option Nat)
+    (message : String)
+    : Entry :=
   .failure cell #[] (Diagnostic.error message)
 
 private def resolveTheme : IO App := do
@@ -114,8 +120,12 @@ private def resolveTheme : IO App := do
 `Screen` retains rendered lines and performs the terminal diff; the transcript remains a viewport
 so the app can keep its header and prompt visible. Entries are stored newest first, so rendering
 stops as soon as the viewport is full. -/
-private def fitEntries (theme : ColorScheme) (width budget : Nat)
-    (entries : List Entry) : List Text :=
+private
+def fitEntries
+    (theme : ColorScheme)
+    (width budget : Nat)
+    (entries : List Entry)
+    : List Text :=
   let rec keep (remaining : Nat) (kept : List Text) : List Entry → List Text
     | [] => kept
     | entry :: older =>
@@ -130,11 +140,20 @@ private def fitEntries (theme : ColorScheme) (width budget : Nat)
           keep (remaining - view.height) (view :: kept) older
   keep budget [] entries
 
-private def withBackground (theme : ColorScheme) (text : Text) : Text :=
+private
+def withBackground
+    (theme : ColorScheme)
+    (text : Text)
+    : Text :=
   { segments := text.segments.map fun segment =>
       { segment with style := Style.bg theme.background <+> segment.style } }
 
-private def opaqueScreen (theme : ColorScheme) (size : Size) (content : Text) : Text :=
+private
+def opaqueScreen
+    (theme : ColorScheme)
+    (size : Size)
+    (content : Text)
+    : Text :=
   let width := max 1 size.columns
   let rows := max 1 size.rows
   let blank := Text.styled (String.ofList (List.replicate width ' '))
@@ -143,7 +162,12 @@ private def opaqueScreen (theme : ColorScheme) (size : Size) (content : Text) : 
   let lines := lines.map (fun line => withBackground theme (padRight width line))
   joinLines (lines ++ List.replicate (rows - lines.length) blank)
 
-private def calcContent (app : App) (size : Size) (showPrompt : Bool) : Text :=
+private
+def calcContent
+    (app : App)
+    (size : Size)
+    (showPrompt : Bool)
+    : Text :=
   let width := size.columns
   let head :=
     if app.entries.isEmpty then banner app.theme width else compactHeader app.theme width
@@ -170,7 +194,12 @@ private def calcContent (app : App) (size : Size) (showPrompt : Bool) : Text :=
     fillHeight budget transcript ++
     (if showPrompt then Text.plain "\n" ++ foot else Text.empty)
 
-private def screenView (app : App) (size : Size) (showPrompt : Bool) : Text :=
+private
+def screenView
+    (app : App)
+    (size : Size)
+    (showPrompt : Bool)
+    : Text :=
   match app.historyOpen, historyDrawerWidths size.columns with
   | true, some (leftWidth, rightWidth) =>
       let left := calcContent app { size with columns := leftWidth } showPrompt
@@ -194,7 +223,10 @@ private def thinking (theme : ColorScheme) : IO Unit := do
   let _ ← region.finish
   pure ()
 
-private def showcaseHeader (theme : ColorScheme) : List Text :=
+private
+def showcaseHeader
+    (theme : ColorScheme)
+    : List Text :=
   [ Text.styled "stage" (Style.bold <+> Style.fg theme.purple)
   , Text.styled "state" (Style.bold <+> Style.fg theme.purple) ]
 
@@ -262,30 +294,54 @@ private def showcase (theme : ColorScheme) (width : Nat) : IO Unit := do
 
 /-! ## Commands -/
 
-private def completionIO (input : TextInputState) : IO (List Repl.Completion) :=
+private
+def completionIO
+    (input : TextInputState)
+    : IO (List Repl.Completion) :=
   completeCommandWith commandSpec (fun typeName =>
     if typeName == "THEME" then pure (themes.map Prod.fst) else pure []) input
 
-private def cellInput : List Entry → Nat → Option String
+private
+def cellInput
+    : List Entry →
+      Nat →
+      Option String
   | [], _ => none
   | .ask number input :: rest, cell =>
       if number == cell then some input else cellInput rest cell
   | _ :: rest, cell => cellInput rest cell
 
-private def cellOutput : List Entry → Nat → Option String
+private
+def cellOutput
+    : List Entry →
+      Nat →
+      Option String
   | [], _ => none
   | .answer number value _ :: rest, cell =>
       if number == cell then some value else cellOutput rest cell
   | _ :: rest, cell => cellOutput rest cell
 
-private def cellReference (entries : List Entry) (cell : Nat) : Option String :=
+private
+def cellReference
+    (entries : List Entry)
+    (cell : Nat)
+    : Option String :=
   (cellOutput entries cell).orElse (fun _ => cellInput entries cell)
 
-private def parseFailure (cell : Nat) (input : String) (error : ParseError) : Entry :=
+private
+def parseFailure
+    (cell : Nat)
+    (input : String)
+    (error : ParseError)
+    : Entry :=
   let source := Source.fromBytes "input" input.toUTF8
   .failure (some cell) #[source] (GripDiagnostics.diagnostic source error)
 
-private def replaceReferences (entries : List Entry) (input : String) : Except String String :=
+private
+def replaceReferences
+    (entries : List Entry)
+    (input : String)
+    : Except String String :=
   let step (state : Except String (Bool × (List Char × List Char))) (character : Char) :=
     match state with
     | .error message => .error message
@@ -312,27 +368,46 @@ private def replaceReferences (entries : List Entry) (input : String) : Except S
   | .ok (true, _) => .error "cell references use [n]"
   | .ok (false, (_, built)) => .ok (String.ofList built.reverse)
 
-private def push (app : App) (entry : Entry) : App :=
+private
+def push
+    (app : App)
+    (entry : Entry)
+    : App :=
   { app with entries := entry :: app.entries }
 
-private def finishJob (app : App) : App :=
+private
+def finishJob
+    (app : App)
+    : App :=
   let remaining := app.activeJobs.pred
   { app with activeJobs := remaining, busy := remaining > 0 }
 
-private def applyJobResult (app : App) (result : JobResult) : App :=
+private
+def applyJobResult
+    (app : App)
+    (result : JobResult)
+    : App :=
   let app := push app result.entry
   match result.answer with
   | none => app
   | some (value, history) =>
       { app with ans := value, history := history :: app.history }
 
-private def mergeJobResult (current completed : App) : App :=
+private
+def mergeJobResult
+    (current completed : App)
+    : App :=
   let current := match completed.jobResult with
     | some result => applyJobResult current result
     | none => current
   finishJob { current with jobResult := none }
 
-private def runCommand (app : App) (cell : Nat) (command : Calc.Command) : App :=
+private
+def runCommand
+    (app : App)
+    (cell : Nat)
+    (command : Calc.Command)
+    : App :=
   match command with
   | .help => push app (.note .help)
   | .history =>
@@ -352,8 +427,14 @@ private def runCommand (app : App) (cell : Nat) (command : Calc.Command) : App :
   | .quit => { app with running := false }
   | .showcase | .load _ => app
 
-private def submitCommand (app : App) (cell : Nat) (raw : String)
-    (width : Nat) (command : Calc.Command) : IO App :=
+private
+def submitCommand
+    (app : App)
+    (cell : Nat)
+    (raw : String)
+    (width : Nat)
+    (command : Calc.Command)
+    : IO App :=
   match command with
   | .showcase => do
       let _ ← Repl.Terminal.suspend (showcase app.theme width)
@@ -378,8 +459,13 @@ private def submitCommand (app : App) (cell : Nat) (raw : String)
           | .error (.evaluation message) => pure (push app (messageFailure (some cell) message))
   | _ => pure (runCommand app cell command)
 
-private def dispatchCommand (app : App) (cell : Nat) (raw : String)
-    (width : Nat) : IO App :=
+private
+def dispatchCommand
+    (app : App)
+    (cell : Nat)
+    (raw : String)
+    (width : Nat)
+    : IO App :=
   match parseCommand commandSpec raw with
   | .error message => pure (push app (messageFailure (some cell) message))
   | .ok command => submitCommand app cell raw width command
@@ -408,7 +494,10 @@ private def submit (app : App) (raw : String) : IO App := do
       | .error (.evaluation message) =>
           return push app (messageFailure (some cell) message)
 
-private def backgroundJobs : Repl.Terminal.JobConfig App where
+private
+def backgroundJobs
+    : Repl.Terminal.JobConfig App
+    where
   shouldRun := fun _ line => !line.startsWith "/"
   start := fun app raw =>
     let cell := app.nextCell
@@ -451,7 +540,10 @@ private inductive AppKeyAction
   | historyScrollUp
   | historyScrollDown
 
-private def appKeymap : Repl.Terminal.AppKeymap App where
+private
+def appKeymap
+    : Repl.Terminal.AppKeymap App
+    where
   Action := AppKeyAction
   keymap := { bindings :=
     [ { key := .char 'H', action := .focusCalculator,
@@ -478,7 +570,12 @@ private def appKeymap : Repl.Terminal.AppKeymap App where
     | .historyScrollUp => { app with historyOffset := app.historyOffset + historyScrollStep }
     | .historyScrollDown => { app with historyOffset := app.historyOffset - historyScrollStep })
 
-private def handleHistoryMouse (app : App) (size : Size) (mouse : MouseEvent) : Option App :=
+private
+def handleHistoryMouse
+    (app : App)
+    (size : Size)
+    (mouse : MouseEvent)
+    : Option App :=
   if !app.historyOpen then none
   else
     match historyDrawerWidths size.columns with
@@ -530,7 +627,9 @@ private def interactive (start : App) : IO Unit := do
       isRunning := fun app => app.running
       quit := fun app => { app with running := false } }
 
-private def staticSamples : List String :=
+private
+def staticSamples
+    : List String :=
   ["2+3*4", "(1+2)^5", "2^-2", "sqrt(2)", "10/4 + 7%3", "ans * 2", "1/0", "2 * (3 + "]
 
 private def staticDemo (start : App) : IO Unit := do
@@ -568,7 +667,9 @@ private def staticDemo (start : App) : IO Unit := do
   writeTextLine (entryView theme width (.note (.theme start.themeName)))
   writeTextLine (entryView theme width (.note .help))
 
-private def usage : String :=
+private
+def usage
+    : String :=
   s!"calc {version} — a chat-shaped calculator on the termcolor stack
 
 usage:
