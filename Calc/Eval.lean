@@ -89,19 +89,31 @@ def decodeNumber
 private def isNumberByte (byte : UInt8) : Bool := Ascii.isDigit byte || byte == Ascii.dot
 
 /-- A number literal, decoded straight from its consumed byte range. -/
-private def number : GParser conditional Expr :=
+private
+def number
+    : GParser conditional Expr
+    :=
   GParser.captureWith? decodeNumber (GParser.takeWhile1 isNumberByte) <?> "a number"
 
 /-- A constant or function name. -/
-private def identifier : GParser conditional String :=
+private
+def identifier
+    : GParser conditional String
+    :=
   GParser.capture (GParser.takeWhile1 Ascii.isAlpha) <?> "a name"
 
 private def operatorChar (byte : UInt8) : Char := Char.ofNat byte.toNat
 
-private def addOperator : GParser conditional Char :=
+private
+def addOperator
+    : GParser conditional Char
+    :=
   operatorChar <$> (GParser.ws *> GParser.oneOf [Ascii.plus, Ascii.dash]) <?> "'+' or '-'"
 
-private def mulOperator : GParser conditional Char :=
+private
+def mulOperator
+    : GParser conditional Char
+    :=
   operatorChar <$>
     (GParser.ws *> GParser.oneOf [Ascii.code '*', Ascii.code '/', Ascii.code '%'])
     <?> "'*', '/' or '%'"
@@ -117,7 +129,9 @@ def foldBinary
 /-! ## Grammar -/
 
 /-- Parse one expression. -/
-def expression : GParser conditional Expr :=
+def expression
+    : GParser conditional Expr
+    :=
   GParser.fix fun expression =>
     let group : GParser conditional Expr :=
       GParser.ch '(' *> (GParser.ws *> expression) <* (GParser.ws *> GParser.ch ')')
@@ -155,7 +169,9 @@ def expression : GParser conditional Expr :=
 
 The label matters: `many` reports its failure at the offset where the repetition started, so a
 bare "end of input" would blame the last operator the chain accepted. -/
-def parser : GParser conditional Expr :=
+def parser
+    : GParser conditional Expr
+    :=
   (GParser.ws *> expression) <*
     (GParser.ws *> (GParser.eof <?> "an operator or the end of the expression"))
 
@@ -297,7 +313,10 @@ def fails
   | .ok _ => false
   | .error _ => true
 
-private def selfCheck : Bool :=
+private
+def selfCheck
+    : Bool
+    :=
   evaluatesTo "2+3*4" "14" &&
   evaluatesTo "(2+3)*4" "20" &&
   evaluatesTo "2^3^2" "512" &&
