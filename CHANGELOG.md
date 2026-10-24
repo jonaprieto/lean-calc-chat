@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.12 — 2026-10-24
+
+- Refresh Grip to v0.4.1, Grip Diagnostics to v0.2.10, Argus to v0.5.6 and TermColor REPL to
+  v0.8.9.
+- Lay out declarations one binder group per line.
+
 ## 0.5.11 — 2026-09-09
 
 - Refresh dependencies and document the contribution policy and package problem.
