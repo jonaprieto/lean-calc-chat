@@ -19,19 +19,19 @@ require «termcolor-diagnostics» from git
 
 require «grip» from git
   "https://github.com/jonaprieto/lean-grip.git"
-  @ "v0.3.6"
+  @ "v0.4.1"
 
 require «grip-diagnostics» from git
   "https://github.com/jonaprieto/lean-grip-diagnostics.git"
-  @ "v0.2.9"
+  @ "v0.2.10"
 
 require «termcolor-repl» from git
   "https://github.com/jonaprieto/lean-termcolor-repl.git"
-  @ "v0.8.8"
+  @ "v0.8.9"
 
 require argus from git
   "https://github.com/jonaprieto/lean-argus.git"
-  @ "v0.5.5"
+  @ "v0.5.6"
 
 @[default_target]
 lean_lib «Calc» where
